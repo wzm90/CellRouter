@@ -1,0 +1,208 @@
+##! BEGIN MACRO DEFINITIONS !##
+################################################################################
+# Variable Definitions:
+#
+# CCPATH        = Compiler path.
+# CXXOPTS       = Compiler flags.
+# SHLIBTAIL     = Setting this to _sh causes the link to use the shared, 
+#                 not static libs of the OpenAccess Software
+# OPTMODE       = Set this to either dbg or opt, default is dbg
+# LIB_64        = Specifies whether it is 64 Bit version.
+################################################################################
+
+ifndef MACRO_DEFS_INCLUDED
+MACRO_DEFS_INCLUDED = 1
+
+# Uncomment following line if application is to be compiled for 64 bit
+# LIB_64 = 64bit
+
+SHELL = /bin/sh
+
+# TOOLSDIR points to the tools/ directory where you installed the
+# OpenAccess include files and shared libs
+ifndef TOOLSDIR
+TOOLSDIR = /w/class/ee201a/ee201ata/oa
+endif
+
+SYSNAME := $(TOOLSDIR)/bin/sysname
+
+MKDIR = mkdir -p
+CP = cp
+
+OS_TYPE	:= $(shell uname -s)
+UNAME_M	:= $(shell uname -m)
+
+PLATFORM = $(shell $(SYSNAME))
+
+ifndef SYSNAME_OPTIONS
+  ifeq ($(UNAME_M), x86_64)
+    SYSNAME_OPTIONS	= _64
+  else
+    SYSNAME_OPTIONS	= _32
+  endif
+endif
+
+ifeq ($(LIB_64),64bit)
+        SYSNAME_OPTIONS = _64
+endif
+
+
+LIB_SO_EXT = .so
+
+
+ifeq ($(OS_TYPE),HP-UX)
+  ifndef COMPILER_PATH
+    COMPILER_PATH = /grid/common/pkgs/HPsdk/vAR0903/opt
+  endif
+  CCPATH   = $(COMPILER_PATH)/aCC/bin/aCC
+  CXXOPTS  = +DAportable -AA +W279,749,740 -Wl,+s -Wl,-E
+  CXXOPTS_SO = $(CXXOPTS)
+  SYS_LD_SO = -b
+  CXXPIC = +Z
+  LIB_SO_EXT = .sl
+
+  ifeq ($(SYSNAME_OPTIONS),_64)
+        CXXOPTS = +DAportable -AA +W279,740,749,890 +DD64 -Wl,+s -Wl,-E
+  	CXXOPTS_SO = $(CXXOPTS)
+  endif
+endif
+
+
+ifeq ($(OS_TYPE),AIX)
+  ifndef COMPILER_PATH
+    COMPILER_PATH = /grid/common/pkgs/xlc/v7.0p2/usr/vacpp
+  endif
+  CCPATH   = $(COMPILER_PATH)/bin/xlC_r
+  CXXOPTS  = -+ -qchars=signed -qlanglvl=extended -qro -O  -+ -qchars=signed -qlanglvl=extended -qro -qweaksymbol -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DAIX -D_ALL_SOURCE -DPORT_NOVFORK -Dunix -D_BSD -D_BSD_INCLUDES -D__STR31__ -D_THREAD_SAFE -DAIX -DBUILD_PLATFORM="\"aix_53_32 VisualAge_7\"" -DNDEBUG -DUSE_GNUMAKE -qtwolink -brtl -bexpall -bmaxdata:0x80000000/dsa 
+  CXXOPTS_SO  = -+ -qchars=signed -qlanglvl=extended -qro -O  -+ -qchars=signed -qlanglvl=extended -qro -qweaksymbol -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DAIX -D_ALL_SOURCE -DPORT_NOVFORK -Dunix -D_BSD -D_BSD_INCLUDES -D__STR31__ -D_THREAD_SAFE -DAIX -DBUILD_PLATFORM="\"aix_53_32 VisualAge_7\"" -DNDEBUG -DUSE_GNUMAKE  
+  SYS_LD_SO = -G -qmkshrobj
+  CXXPIC =
+
+  ifeq ($(SYSNAME_OPTIONS),_64)
+        CXXOPTS += -q64
+	CXXOPTS_SO += -q64
+  endif
+endif
+
+
+ifeq ($(OS_TYPE),SunOS)
+  ifeq ($(findstring sunos_510_x86, $(PLATFORM)), sunos_510_x86)
+    ifndef COMPILER_PATH
+	COMPILER_PATH = /grid/common/pkgs/forte/v11.0/SUNWspro
+    endif
+    CCPATH   = $(COMPILER_PATH)/bin/CC
+    ifeq ($(SYSNAME_OPTIONS),_64)
+      CXXOPTS = -xtarget=opteron -xarch=amd64
+    else
+      CXXOPTS = -xarch=sse2
+    endif
+    CXXOPTS_SO = $(CXXOPTS)
+  else
+    ifndef COMPILER_PATH
+      ifeq ($(findstring sunos_510, $(PLATFORM)), sunos_510)
+	COMPILER_PATH = /grid/common/pkgs/forte/v11.0/SUNWspro
+      else
+        COMPILER_PATH = /grid/common/pkgs/forte/v8.0p2/SUNWspro
+      endif
+    endif
+    CCPATH   = $(COMPILER_PATH)/bin/CC
+    CXXOPTS  =
+    ifeq ($(SYSNAME_OPTIONS),_64)
+      CXXOPTS = -xarch=v9
+    endif
+    CXXOPTS_SO = $(CXXOPTS)
+  endif
+  ifeq ($(findstring stl4, $(PLATFORM)), stl4)
+    CXXOPTS += -library=stlport4
+    CXXOPTS_SO = $(CXXOPTS)
+  endif
+  SYSLIBS  = -lsocket -lnsl -lrt -ldl
+  SYS_LD_SO = -G
+  CXXPIC = -KPIC
+endif 
+
+
+ifeq ($(OS_TYPE),Linux)
+
+  ifndef COMPILER_PATH
+    ifeq ($(findstring gcc411, $(PLATFORM)), gcc411)
+      COMPILER_PATH = /grid/common/pkgs/gcc/v4.1.1
+    else
+   	ifeq ($(findstring gcc44x, $(PLATFORM)), gcc44x)
+            COMPILER_PATH = /grid/common/pkgs/gcc/v4.4.0
+	else
+   		ifeq ($(findstring rhel40, $(PLATFORM)), rhel40)
+            		COMPILER_PATH = /grid/common/pkgs/gcc/v4.1.2p2
+		else
+      	    		COMPILER_PATH = /grid/common/pkgs/gcc/v3.2.3p1
+		endif
+	endif
+    endif
+  endif
+
+  CCPATH   = /usr/bin/g++
+  CXXOPTS  = -Wno-ctor-dtor-privacy
+  CXXOPTS_SO = $(CXXOPTS)
+  SYS_LD_SO = -shared
+  CXXPIC = -fPIC
+  SYSLIBS  = -ldl
+
+  # For gcc411 support
+  ifeq ($(PLATFORM),linux_rhel30_gcc411)
+       CCPATH   = $(COMPILER_PATH)/bin/g++  
+       ifeq ($(SYSNAME_OPTIONS),_32)
+           CXXOPTS += -m32
+  	   CXXOPTS_SO += -m32
+       endif
+  endif
+
+  ifeq ($(PLATFORM),linux_rhel40)
+       CCPATH   = /usr/bin/g++  
+       ifeq ($(SYSNAME_OPTIONS),_32)
+           CXXOPTS += -m32
+  	   CXXOPTS_SO += -m32
+       endif
+  endif
+
+  ifeq ($(PLATFORM),linux_rhel40_gcc44x)
+       CCPATH   = $(COMPILER_PATH)/bin/g++  
+       ifeq ($(SYSNAME_OPTIONS),_32)
+           CXXOPTS += -m32
+  	   CXXOPTS_SO += -m32
+       endif
+  endif
+
+endif
+
+
+
+# Default to opt mode
+ifndef OPTMODE
+OPTMODE = opt
+endif
+
+ifeq ($(OPTMODE),dbg) 
+   LIB_OPT=dbg
+   DEBUG = -g
+else
+   LIB_OPT=opt
+   DEBUG = -O -DDEBUG -g
+endif
+
+OA_LIB_DIR = $(TOOLSDIR)/lib/$(PLATFORM)$(SYSNAME_OPTIONS)/$(LIB_OPT)
+
+OA_LIB_LIST = $(OA_LIB_DIR)/liboaCommon$(LIB_SO_EXT) \
+	      $(OA_LIB_DIR)/liboaBase$(LIB_SO_EXT) \
+	      $(OA_LIB_DIR)/liboaPlugIn$(LIB_SO_EXT) \
+	      $(OA_LIB_DIR)/liboaDM$(LIB_SO_EXT) \
+	      $(OA_LIB_DIR)/liboaTech$(LIB_SO_EXT) \
+	      $(OA_LIB_DIR)/liboaDesign$(LIB_SO_EXT)
+
+endif
+
+
+# Common code that is shared among the examples.
+# This code is located in ./common.
+COMMON_CODE = 	/w/class/ee201a/ee201ata/oa/examples/oa/common/commonTechObserver.o \
+		/w/class/ee201a/ee201ata/oa/examples/oa/common/commonLibDefListObserver.o \
+		/w/class/ee201a/ee201ata/oa/examples/oa/common/commonFunctions.o
