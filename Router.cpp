@@ -54,27 +54,31 @@ bool
 Router_t::route()
 {
     net_iterator netIter;
-    bool result;
+    bool result = true;
 
     // route VDD
+    cout << "VDD net:" << endl;
     for (netIter = _nets.begin(VDD); netIter != _nets.end(VDD); ++netIter) {
         Net_t net = *netIter;
         bool oneResult = routeOneNet(VDD, net);
         result = oneResult && result;
     }
     // route VSS
+    cout << "VSS net:" << endl;
     for (netIter = _nets.begin(VSS); netIter != _nets.end(VSS); ++netIter) {
         Net_t net = *netIter;
         bool oneResult = routeOneNet(VSS, net);
         result = oneResult && result;
     }
     // route S
+    cout << "S net:" << endl;
     for (netIter = _nets.begin(S); netIter != _nets.end(S); ++netIter) {
         Net_t net = *netIter;
         bool oneResult = routeOneNet(S, net);
         result = oneResult && result;
     }
     // route IO
+    cout << "IO net:" << endl;
     for (netIter = _nets.begin(IO); netIter != _nets.end(IO); ++netIter) {
         Net_t net = *netIter;
         bool oneResult = routeOneNet(IO, net);
@@ -87,5 +91,10 @@ Router_t::route()
 bool
 Router_t::routeOneNet(NetType_t type, Net_t &net)
 {
+    Net_t::const_iterator pointCIter;
+    for (pointCIter = net.begin(); pointCIter != net.end(); ++pointCIter) {
+        cout << "\t(" << pointCIter->x() << " " << pointCIter->y() << ")" << endl;
+    }
+    cout << endl;
     return true;
 }

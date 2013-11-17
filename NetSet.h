@@ -5,8 +5,9 @@
 #include <vector>
 #include <map>
 #include "oaDesignDB.h"
+#include "Net.h"
 
-typedef std::vector<oa::oaPoint> Net_t;
+//typedef std::vector<oa::oaPoint> Net_t;
 
 // 0 stores VDD, 1 stores VSS, 2 stores S, 3 stores IO
 typedef std::vector<std::vector<Net_t> > Nets_t;
@@ -19,6 +20,7 @@ const NetType_t VDD = 0;
 const NetType_t VSS = 1;
 const NetType_t S = 2;
 const NetType_t IO = 3;
+
 
 class NetSet_t {
 public:

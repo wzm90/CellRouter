@@ -49,7 +49,13 @@ NetSet_t::parseNet(Net_t &net, const string &line)
             return 1;
         } else if (type == "S") {
             return 2;
-        } else if (type == "IO") {
+        } else if (type.find("IO/") != string::npos) {
+            size_t pos = type.find("IO/") + 3;
+            oaString portName(string(type, pos).c_str());
+#ifdef DEBUG
+            cout << "The port name is: " << portName << endl;         
+#endif
+            net.setPortName(portName);
             return 3;
         } else {
             cerr << "Unknown net type: " << type << endl;
