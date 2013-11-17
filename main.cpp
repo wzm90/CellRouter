@@ -2,7 +2,7 @@
 #include <fstream>
 #include "oaDesignDB.h"
 #include "route_core.h"
-#include "Netlist.h"
+#include "NetSet.h"
 #include "DRC.h"
 
 using namespace std;
@@ -93,7 +93,7 @@ int main(int argc, char *argv[])
             cerr << "Cannot open file: " << argv[3] << endl;
             exit(1);
         }
-        Netlist_t netlist(file);
+        NetSet_t net(file);
         file.close();
         file.open(argv[4]);
         if (!file.good()) {
@@ -104,7 +104,7 @@ int main(int argc, char *argv[])
         file.close();
 
         // start routing
-        route(design, tech, netlist, designRule);
+        route(design, tech, net, designRule);
 
         // save the design
         design->saveAs(libraryName, newCellName, layoutView);

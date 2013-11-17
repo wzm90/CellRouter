@@ -9,7 +9,8 @@ using std::cout;
 using std::cerr;
 using std::endl;
 
-DRC_t::DRC_t(ifstream &file) {
+DRC_t::DRC_t(ifstream &file)
+{
     file.clear();
     file.seekg(0);
 #ifdef DEBUG
