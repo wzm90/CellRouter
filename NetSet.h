@@ -20,31 +20,6 @@ const NetType_t VSS = 1;
 const NetType_t S = 2;
 const NetType_t IO = 3;
 
-/*
-class Netlist_t {
-public:
-     typedef std::pair<oa::oaPoint, oa::oaPoint> ContactPair_t;
-
-     // read from netlist.txt and store netlist
-     Netlist_t(std::ifstream &file);
-     // return pairs of contacts to be routed
-     void getContactPairs(std::vector<ContactPair_t> &pairs) const;
-
-private:
-     // connection info of the cell
-     typedef unsigned char NetType_t;     // 0-VDD, 1-VSS, 2-S, 3-IO
-     typedef std::vector<oa::oaPoint> _OneNet_t;
-     typedef std::map<NetType_t, _OneNet_t> _Nets_t;
-
-     // parse netlist.txt and extract one net
-     NetType_t parseNetlist(_OneNet_t &net, const std::string &line);
-     // store the net that just get parsed into internal container
-     inline void addNetlist(NetType_t type, const _OneNet_t &net);
-
-     _Nets_t _allNets;
-};
-*/
-
 class NetSet_t {
 public:
     NetSet_t(std::ifstream &file);

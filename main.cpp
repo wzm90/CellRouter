@@ -1,9 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include "oaDesignDB.h"
-#include "route_core.h"
-#include "NetSet.h"
-#include "DRC.h"
+#include "Router.h"
 
 using namespace std;
 using namespace oa;
@@ -86,25 +84,30 @@ int main(int argc, char *argv[])
         oaTech *tech = oaTech::open(lib, 'a');
 
         // read connection file and design rule file
-        ifstream file;
+        ifstream file1, file2;
 
-        file.open(argv[3]);
-        if (!file.good()) {
+        file1.open(argv[3]);
+        if (!file1.good()) {
             cerr << "Cannot open file: " << argv[3] << endl;
             exit(1);
         }
-        NetSet_t net(file);
-        file.close();
-        file.open(argv[4]);
-        if (!file.good()) {
+        file2.open(argv[4]);
+        if (!file2.good()) {
             cerr << "Cannot open file: " << argv[4] << endl;
             exit(1);
         }
-        DRC_t designRule(file);
-        file.close();
+
+        Router_t router(design, tech, file1, file2);
+
+        file1.close();
+        file2.close();
 
         // start routing
-        route(design, tech, net, designRule);
+        if (router.route()) {
+            cout << "Routing succeeded without violation." << endl;
+        } else {
+            cout << "Routing failed with some violations." << endl;
+        }
 
         // save the design
         design->saveAs(libraryName, newCellName, layoutView);
