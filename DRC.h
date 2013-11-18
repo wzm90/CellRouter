@@ -13,12 +13,12 @@ public:
     oa::oaUInt4 viaWidth() const { return _viaWidth; }
     oa::oaUInt4 viaHeight() const { return _viaHeight; }
 private:
-    void setMetalWidth(oa::oaUInt4 width) { _metalWidth = width; }
-    void setMetalSpacing(oa::oaUInt4 space) { _metalSpacing = space; }
-    void setViaExtension(oa::oaUInt4 extension) { _viaExtension = extension; }
-    void setMetalArea(oa::oaUInt4 area) { _metalArea = area; }
-    void setViaWidth(oa::oaUInt4 vwidth) { _viaWidth = vwidth; }
-    void setViaHeight(oa::oaUInt4 vheight) { _viaHeight = vheight; }
+    void setMetalWidth(oa::oaUInt4 width) { _metalWidth = 10 * width; }
+    void setMetalSpacing(oa::oaUInt4 space) { _metalSpacing = 10 * space; }
+    void setViaExtension(oa::oaUInt4 extension) { _viaExtension = 10 * extension; }
+    void setMetalArea(oa::oaUInt4 area) { _metalArea = 100 * area; }
+    void setViaWidth(oa::oaUInt4 vwidth) { _viaWidth = 10 * vwidth; }
+    void setViaHeight(oa::oaUInt4 vheight) { _viaHeight = 10 * vheight; }
     // design rules (in coordinate units, not in nm)
     oa::oaUInt4 _metalWidth;
     oa::oaUInt4 _metalSpacing;

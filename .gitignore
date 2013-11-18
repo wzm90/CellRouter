@@ -3,3 +3,8 @@ DesignLib
 *.d
 *.o
 main
+*.gds
+*.map
+*.defs
+*.log
+*.automap
