@@ -1,3 +1,6 @@
+#ifndef NET_H_
+#define NET_H_
+
 #include <vector>
 #include "oaDesignDB.h"
 
@@ -10,3 +13,5 @@ public:
 private:
     oa::oaString _portName;
 };
+
+#endif

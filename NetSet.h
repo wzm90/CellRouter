@@ -2,19 +2,8 @@
 #define NETSET_H_
 #include <string>
 #include <fstream>
-#include <vector>
-#include <map>
 #include "oaDesignDB.h"
-#include "Net.h"
-
-//typedef std::vector<oa::oaPoint> Net_t;
-
-// 0 stores VDD, 1 stores VSS, 2 stores S, 3 stores IO
-typedef std::vector<std::vector<Net_t> > Nets_t;
-
-typedef Nets_t::size_type NetType_t;
-
-typedef Nets_t::value_type::const_iterator net_iterator;
+#include "RouterConfig.h"
 
 const NetType_t VDD = 0;
 const NetType_t VSS = 1;
