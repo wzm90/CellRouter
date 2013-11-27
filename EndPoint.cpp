@@ -6,8 +6,8 @@
 using namespace oa;
 using namespace std;
 
-EndPoint_t::EndPoint_t(oaCoord x, oaCoord y)
-    : _escapePoints(), _hlines(), _vlines()
+EndPoint_t::EndPoint_t(oaCoord x, oaCoord y, oaInt4 id)
+    : _escapePoints(), _hlines(), _vlines(), _netID(id)
 {
     _orient = BOTH;
     _noEscape = false;

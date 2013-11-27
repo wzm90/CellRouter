@@ -7,7 +7,6 @@ using namespace oa;
 
 // read from netlist.txt and store netlist
 NetSet_t::NetSet_t(ifstream &file)
-    :_allNets(4)
 {
     file.clear();
     file.seekg(0);
@@ -18,49 +17,74 @@ NetSet_t::NetSet_t(ifstream &file)
 #ifdef DEBUG    
             cout << line << endl;
 #endif
-            Net_t net;
-            NetType_t type;
-            type = parseNet(net, line);
-            addNet(type, net);
+            parseAddNet(line);
         }
     } while (file.good());
+#ifdef DEBUG 
+    const_iterator netIter;
+    for (netIter = this->begin(); netIter != this->end(); ++netIter)
+    {
+        // print each net
+        cout << "ID: " << netIter->id() << " port: " << netIter->portName();
+        cout << " type: ";
+        if (netIter->type() == VDD) cout << "VDD";
+        else if (netIter->type() == VSS) cout << "VSS";
+        else if (netIter->type() == S) cout << "S";
+        else if (netIter->type() == IO) cout << "IO";
+        else cout << "NULL";
+        cout << endl;
+        Net_t::const_iterator it;
+        for (it = netIter->begin(); it != netIter->end(); ++it) {
+            cout << "(" << it->x() << ", " << it->y() << ") ";
+        }
+        cout << endl;
+    }  
+#endif
 }
 
 // parse input text file and extract one net
-NetType_t
-NetSet_t::parseNet(Net_t &net, const string &line)
+void
+NetSet_t::parseAddNet(const string &line)
 {
     istringstream ss(line);
     oaCoord coord1, coord2;
+    vector<oaPoint> points;
+    NetType_t type;
+    oaString portName;
+
     while (ss >> coord1 >> coord2) {
 #ifdef DEBUG
         cout << "Read contact positions: " << coord1 << " and " << coord2;
         cout << endl;
 #endif
-        oaPoint point(coord1, coord2);
-        net.push_back(point);
+        points.push_back(oaPoint(coord1, coord2));
     }
-    string type;
+
+    string typeName;
     ss.clear();
-    if (ss >> type) {
-        if (type == "VDD") {
-            return 0;
-        } else if (type == "VSS") {
-            return 1;
-        } else if (type == "S") {
-            return 2;
-        } else if (type.find("IO/") != string::npos) {
-            size_t pos = type.find("IO/") + 3;
-            oaString portName(string(type, pos).c_str());
+    if (ss >> typeName) {
+        if (typeName == "VDD") {
+            type = VDD;
+        } 
+        else if (typeName == "VSS") {
+            type = VSS;
+        }
+        else if (typeName == "S") {
+            type = S;
+        }
+        else if (typeName.find("IO/") != string::npos) {
+            type = IO;
+            size_t pos = typeName.find("IO/") + 3;
+            portName = oaString(string(typeName, pos).c_str());
 #ifdef DEBUG
             cout << "The port name is: " << portName << endl;         
 #endif
-            net.setPortName(portName);
-            return 3;
         } else {
-            cerr << "Unknown net type: " << type << endl;
+            cerr << "Unknown net type: " << typeName << endl;
             exit(1);
         }
+        // push Net_t into NetSet_t 
+        this->push_back(Net_t(points, this->size(), type, portName));
     } else {
         cerr << "Invalid netlist format." << endl;
         exit(1);

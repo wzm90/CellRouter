@@ -15,22 +15,28 @@ public:
     bool route();
 private:
     typedef enum { LEFT, BOTTOM, RIGHT, TOP } CoverType;
+    // BarrierSet_t: containters for storing line barriers, 
+    // used in line-probing algorithm
+    typedef std::multimap<oa::oaCoord, std::pair<oa::oaUInt4, line_t> > BarrierSet_t;
     
-    bool routeOneNet(NetType_t type, Net_t &net);
-    bool routeVDD(Net_t &net);
-    bool routeVSS(Net_t &net);
-    bool routeSignal(Net_t &net);
-    bool routeIO(Net_t &net);
-    void createWire(const oa::oaPoint &lhs, const oa::oaPoint &rhs);
-    bool routeTwoContacts(oa::oaPoint lhs, oa::oaPoint rhs);
+    void reorderNets() { return ; }
+    bool routeOneNet(const Net_t &net);
+    bool routeVDD(const Net_t &net);
+    bool routeVSS(const Net_t &net);
+    bool routeSignal(const Net_t &net);
+    bool routeIO(const Net_t &net);
+    void createWire(const oa::oaPoint &lhs, const oa::oaPoint &rhs, oa::oaInt4 width);
+    bool routeTwoContacts(EndPoint_t &lhs, EndPoint_t &rhs);
     // escape: perform escape algorithm
     bool escape(EndPoint_t &src, EndPoint_t &dst);
     void getEscapeLine(const EndPoint_t &src, Orient_t orient, line_t &escapeLine);
     void getEscapePoint(EndPoint_t &src); 
     void getCover(const EndPoint_t &src, CoverType type, line_t &cover);
-    void addObstacle(oa::oaLayerNum layer, const oa::oaBox &box);
-    void addHline(const line_t &line);
-    void addVline(const line_t &line);
+    void addObstacle(oa::oaLayerNum layer, oa::oaInt4 netID, const oa::oaBox &box);
+
+    line_t &lineSeg(const BarrierSet_t::iterator &it) {return (it->second).second;}
+    oa::oaInt4 netID(const BarrierSet_t::iterator &it) {return (it->second).first;}
+    oa::oaCoord coord(const BarrierSet_t::iterator &it) {return it->first;}
 
     oa::oaDesign *_design;
     oa::oaTech *_tech;
@@ -38,7 +44,7 @@ private:
     oa::oaBox _VSSBox;
     NetSet_t _nets;
     DRC_t _designRule;
-    LineSet_t _m1Barriers;
-    LineSet_t _m2Barriers;
+    BarrierSet_t _m1Barriers;
+    BarrierSet_t _m2Barriers;
 };
 #endif

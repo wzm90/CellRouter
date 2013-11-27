@@ -40,6 +40,7 @@ Comparator::operator()(const oaPoint &lhs, const oaPoint &rhs)
     return (distance1 < distance2);
 }
 
+
 Router_t::Router_t(oaDesign *design, oaTech *tech, ifstream &file1,\
         ifstream &file2)
     :_design(design), _tech(tech), _nets(file1), _designRule(file2)
@@ -87,62 +88,23 @@ Router_t::Router_t(oaDesign *design, oaTech *tech, ifstream &file1,\
     oaBox routeRegionBox(_VDDBox.left(), _VSSBox.top(), _VSSBox.right(), \
             _VDDBox.bottom());
 
-    addObstacle(METAL1, routeRegionBox);
-    addObstacle(METAL2, routeRegionBox);
+    addObstacle(METAL1, -1, routeRegionBox);
+    addObstacle(METAL2, -1, routeRegionBox);
     // add all contacts as obstacles
-    net_iterator netIter;
+    NetSet_t::const_iterator netIter;
     // contacts in VDD net
-    for (netIter = _nets.begin(VDD); netIter != _nets.end(VDD); ++netIter) {
+    for (netIter = _nets.begin(); netIter != _nets.end(); ++netIter) {
         Net_t::const_iterator citer;
         for (citer = netIter->begin(); citer != netIter->end(); ++citer) {
             oaPoint upperRight(citer->x() + _designRule.viaWidth(), \
                     citer->y() + _designRule.viaHeight());
 
             oaBox contactBBox(*citer, upperRight);
-            addObstacle(METAL1, contactBBox);
-            addObstacle(METAL2, contactBBox);
+            addObstacle(METAL1, netIter->id(), contactBBox);
+            addObstacle(METAL2, netIter->id(), contactBBox);
         }
     }
     
-    // contacts in VSS net
-    for (netIter = _nets.begin(VSS); netIter != _nets.end(VSS); ++netIter) {
-        Net_t::const_iterator citer;
-        for (citer = netIter->begin(); citer != netIter->end(); ++citer) {
-            oaPoint upperRight(citer->x() + _designRule.viaWidth(), \
-                    citer->y() + _designRule.viaHeight());
-
-            oaBox contactBBox(*citer, upperRight);
-            addObstacle(METAL1, contactBBox);
-            addObstacle(METAL2, contactBBox);
-        }
-    }
-    
-    // contacts in IO net
-    for (netIter = _nets.begin(IO); netIter != _nets.end(IO); ++netIter) {
-        Net_t::const_iterator citer;
-        for (citer = netIter->begin(); citer != netIter->end(); ++citer) {
-            oaPoint upperRight(citer->x() + _designRule.viaWidth(), \
-                    citer->y() + _designRule.viaHeight());
-
-            oaBox contactBBox(*citer, upperRight);
-            addObstacle(METAL1, contactBBox);
-            addObstacle(METAL2, contactBBox);
-        }
-    }
-
-    // contacts in S net
-    for (netIter = _nets.begin(S); netIter != _nets.end(S); ++netIter) {
-        Net_t::const_iterator citer;
-        for (citer = netIter->begin(); citer != netIter->end(); ++citer) {
-            oaPoint upperRight(citer->x() + _designRule.viaWidth(), \
-                    citer->y() + _designRule.viaHeight());
-
-            oaBox contactBBox(*citer, upperRight);
-            addObstacle(METAL1, contactBBox);
-            addObstacle(METAL2, contactBBox);
-        }
-    }
-
 
     // create metal2 layer and via1 layer if any of them does not exist
     oaLayer * layer;
@@ -165,44 +127,21 @@ Router_t::Router_t(oaDesign *design, oaTech *tech, ifstream &file1,\
 bool
 Router_t::route()
 {
-    net_iterator netIter;
+    reorderNets();
+    NetSet_t::const_iterator netIter;
     bool result = true;
 
-    // route VDD
-    for (netIter = _nets.begin(VDD); netIter != _nets.end(VDD); ++netIter) {
-        Net_t net = *netIter;
-        bool oneResult = routeOneNet(VDD, net);
+    for (netIter = _nets.begin(); netIter != _nets.end(); ++netIter) {
+        bool oneResult = routeOneNet(*netIter);
         result = oneResult && result;
     }
-    // route VSS
-    cout << "VSS net:" << endl;
-    for (netIter = _nets.begin(VSS); netIter != _nets.end(VSS); ++netIter) {
-        Net_t net = *netIter;
-        bool oneResult = routeOneNet(VSS, net);
-        result = oneResult && result;
-    }
-    // route S
-    cout << "S net:" << endl;
-    for (netIter = _nets.begin(S); netIter != _nets.end(S); ++netIter) {
-        Net_t net = *netIter;
-        bool oneResult = routeOneNet(S, net);
-        result = oneResult && result;
-    }
-    // route IO
-    cout << "IO net:" << endl;
-    for (netIter = _nets.begin(IO); netIter != _nets.end(IO); ++netIter) {
-        Net_t net = *netIter;
-        bool oneResult = routeOneNet(IO, net);
-        result = oneResult && result;
-    }
-
     return result;
 }
 
 bool
-Router_t::routeOneNet(NetType_t type, Net_t &net)
+Router_t::routeOneNet(const Net_t &net)
 {
-    switch (type) {
+    switch (net.type()) {
     case VDD:
         return routeVDD(net);
     case VSS:
@@ -218,21 +157,21 @@ Router_t::routeOneNet(NetType_t type, Net_t &net)
 }
 
 bool
-Router_t::routeVDD(Net_t &net)
+Router_t::routeVDD(const Net_t &net)
 {
     return true;
 }
 
 
 bool
-Router_t::routeVSS(Net_t &net)
+Router_t::routeVSS(const Net_t &net)
 {
     return true;
 }
 
 
 bool
-Router_t::routeSignal(Net_t &net)
+Router_t::routeSignal(const Net_t &net)
 {
     if (net.size() > 1) {
         /*
@@ -258,10 +197,17 @@ Router_t::routeSignal(Net_t &net)
             createWire(*netIter, steiner);
         }
         */
-        Net_t::iterator it1 = net.begin();
-        Net_t::iterator it2 = net.begin();
+        Net_t::const_iterator it1 = net.begin();
+        Net_t::const_iterator it2 = net.begin();
         ++it2;
-        return routeTwoContacts(*it1, *it2);
+
+        EndPoint_t A(it1->x()+_designRule.viaWidth()/2, \
+            it1->y()+_designRule.viaHeight()/2, net.id());
+
+        EndPoint_t B(it2->x()+_designRule.viaWidth()/2, \
+            it2->y()+_designRule.viaHeight()/2, net.id());
+
+        return routeTwoContacts(A, B);
     } 
 
     return true;
@@ -269,7 +215,7 @@ Router_t::routeSignal(Net_t &net)
 
 
 bool
-Router_t::routeIO(Net_t &net)
+Router_t::routeIO(const Net_t &net)
 {
     return true;
 }
@@ -277,19 +223,14 @@ Router_t::routeIO(Net_t &net)
 // Route two contacts using line-probing algorithm as described in
 // "A Solution to line-routing problems on the continuous plane"
 bool
-Router_t::routeTwoContacts(oaPoint lhs, oaPoint rhs)
+Router_t::routeTwoContacts(EndPoint_t &lhs, EndPoint_t &rhs)
 {
     // two contacts are represented by two leftdown points of their actual
     // box, now we move these two points to the center of contact bounding box
-    EndPoint_t A(lhs.x()+_designRule.viaWidth()/2, \
-        lhs.y()+_designRule.viaHeight()/2);
-
-    EndPoint_t B(rhs.x()+_designRule.viaWidth()/2, \
-        rhs.y()+_designRule.viaHeight()/2);
     
     bool intersect = false;
-    EndPoint_t *src = &A;
-    EndPoint_t *dst = &B;
+    EndPoint_t *src = &lhs;
+    EndPoint_t *dst = &rhs;
 
     // Algorithm begins
     while (!intersect) {
@@ -337,6 +278,9 @@ Router_t::escape(EndPoint_t &src, EndPoint_t &dst)
         line_t escapeLine;
         getEscapeLine(src, HORIZONTAL, escapeLine);
         // add escapeLine
+        //
+        createWire(escapeLine.first, escapeLine.second, _designRule.metalWidth());
+
         src.addHline(escapeLine);
         if (dst.isIntersect(escapeLine)) {
             return true;
@@ -346,6 +290,9 @@ Router_t::escape(EndPoint_t &src, EndPoint_t &dst)
         line_t escapeLine;
         getEscapeLine(src, VERTICAL, escapeLine);
         // add escapeLine
+        //
+        createWire(escapeLine.first, escapeLine.second, _designRule.metalWidth());
+
         src.addVline(escapeLine);
         if (dst.isIntersect(escapeLine)) {
             return true;
@@ -484,34 +431,46 @@ Router_t::getEscapePoint(EndPoint_t &src)
 }
 
 void
-Router_t::createWire(const oaPoint &lhs, const oaPoint &rhs)
+Router_t::createWire(const oaPoint &lhs, const oaPoint &rhs, oaInt4 width)
 {
     if (lhs != rhs) {
         if (lhs.x() == rhs.x()) {
             // create wire rect
-            oaCoord wireleft = lhs.x();
-            oaCoord wireright = lhs.x() + _designRule.viaWidth();
+            oaCoord wireleft = lhs.x() - width / 2;
+            //oaCoord wireright = lhs.x() + _designRule.viaWidth();
+            oaCoord wireright = lhs.x() + width / 2;
             oaCoord wiretop, wirebottom;
             if (lhs.y() < rhs.y()) {
-                wirebottom = lhs.y() - _designRule.viaExtension();
-                wiretop = rhs.y() + _designRule.viaHeight() + \
+                //wirebottom = lhs.y() - _designRule.viaExtension();
+                //wiretop = rhs.y() + _designRule.viaHeight() + \
                           _designRule.viaExtension();
+                wirebottom = lhs.y() - _designRule.viaHeight() / 2;
+                wiretop = rhs.y() + _designRule.viaHeight() / 2;
             } else {
-                wirebottom = rhs.y() - _designRule.viaExtension();
-                wiretop = lhs.y() + _designRule.viaHeight() + \
+                //wirebottom = rhs.y() - _designRule.viaExtension();
+                //wiretop = lhs.y() + _designRule.viaHeight() + \
                           _designRule.viaExtension();
+                wirebottom = rhs.y() - _designRule.viaHeight() / 2;
+                wiretop = lhs.y() + _designRule.viaHeight() / 2;
             }
             oaBox wirebox(wireleft, wirebottom, wireright, wiretop);
-            oaRect::create(_design->getTopBlock(), METAL1, 1, wirebox);
+            oaRect::create(_design->getTopBlock(), METAL2, 1, wirebox);
         } else if (lhs.y() == rhs.y()) {
             // create wire rect
-            oaCoord wiretop = lhs.y() + _designRule.viaHeight();
-            oaCoord wirebottom = lhs.y();
+            //oaCoord wiretop = lhs.y() + _designRule.viaHeight();
+            //oaCoord wirebottom = lhs.y();
+            oaCoord wiretop = lhs.y() + width / 2;
+            oaCoord wirebottom = lhs.y() - width / 2;
             oaCoord wireleft, wireright;
             if (lhs.x() < rhs.x()) {
-                wireleft = lhs.x() - _designRule.viaExtension();
-                wireright = rhs.x() + _designRule.viaWidth() + \
+                //wireleft = lhs.x() - _designRule.viaExtension();
+                //wireright = rhs.x() + _designRule.viaWidth() + \
                             _designRule.viaExtension();
+                wireleft = lhs.x() - _designRule.viaWidth() / 2;
+                wireright = rhs.x() + _designRule.viaWidth() / 2;
+            } else {
+                wireleft = rhs.x() - _designRule.viaWidth() / 2;
+                wireright = lhs.x() + _designRule.viaWidth() / 2;
             }
             oaBox wirebox(wireleft, wirebottom, wireright, wiretop);
             oaRect::create(_design->getTopBlock(), METAL2, 1, wirebox);
@@ -531,21 +490,21 @@ Router_t::createWire(const oaPoint &lhs, const oaPoint &rhs)
 void
 Router_t::getCover(const EndPoint_t &src, CoverType type, line_t &cover)
 {
-    LineSet_t::const_iterator lineIter;
+    BarrierSet_t::iterator lineIter;
     oaPoint objectPoint = src.getObjectPoint();
 
     switch (type) {
     case LEFT:
-        if (src.justStart()) {
-            objectPoint.x() -= _designRule.viaWidth() / 2;
-        }
         lineIter = _m2Barriers.lower_bound(objectPoint.x());
         do {
             --lineIter;
-            oaInt4 ylow = lineIter->second.first.y() - _designRule.metalSpacing();
-            oaInt4 yhigh = lineIter->second.second.y() + _designRule.metalSpacing();
+            if (netID(lineIter) == src.netID()) {
+                continue; 
+            }
+            oaInt4 ylow = lineSeg(lineIter).first.y() - _designRule.metalSpacing();
+            oaInt4 yhigh = lineSeg(lineIter).second.y() + _designRule.metalSpacing();
             if (ylow <= objectPoint.y() && objectPoint.y() <= yhigh) {
-                cover.first.x() = cover.second.x() = lineIter->first;
+                cover.first.x() = cover.second.x() = coord(lineIter);
                 cover.first.y() = ylow;
                 cover.second.y() = yhigh;
                 return;
@@ -553,33 +512,32 @@ Router_t::getCover(const EndPoint_t &src, CoverType type, line_t &cover)
         } while (lineIter != _m2Barriers.begin());
         break;
     case RIGHT:
-        if (src.justStart()) {
-            objectPoint.x() += _designRule.viaWidth() / 2;
-        }
         lineIter = _m2Barriers.upper_bound(objectPoint.x());
-        while (lineIter != _m2Barriers.end()) {
-            oaInt4 ylow = lineIter->second.first.y() - _designRule.metalSpacing();
-            oaInt4 yhigh = lineIter->second.second.y() + _designRule.metalSpacing();
+        for (; lineIter != _m2Barriers.end(); ++lineIter) {
+            if (netID(lineIter) == src.netID()) {
+                continue;
+            }
+            oaInt4 ylow = lineSeg(lineIter).first.y() - _designRule.metalSpacing();
+            oaInt4 yhigh = lineSeg(lineIter).second.y() + _designRule.metalSpacing();
             if (ylow <= objectPoint.y() && objectPoint.y() <= yhigh) {
-                cover.first.x() = cover.second.x() = lineIter->first;
+                cover.first.x() = cover.second.x() = coord(lineIter);
                 cover.first.y() = ylow;
                 cover.second.y() = yhigh;
                 return;
             }
-            ++lineIter;
         }
         break;
     case BOTTOM:
-        if (src.justStart()) {
-            objectPoint.y() -= _designRule.viaWidth() / 2;
-        }
         lineIter = _m1Barriers.lower_bound(objectPoint.y());
         do {
             --lineIter;
-            oaInt4 xlow = lineIter->second.first.x() - _designRule.metalSpacing();
-            oaInt4 xhigh = lineIter->second.second.x() + _designRule.metalSpacing();
+            if (netID(lineIter) == src.netID()) {
+                continue; 
+            }
+            oaInt4 xlow = lineSeg(lineIter).first.x() - _designRule.metalSpacing();
+            oaInt4 xhigh = lineSeg(lineIter).second.x() + _designRule.metalSpacing();
             if (xlow <= objectPoint.x() && objectPoint.x() <= xhigh) {
-                cover.first.y() = cover.second.y() = lineIter->first;
+                cover.first.y() = cover.second.y() = coord(lineIter);
                 cover.first.x() = xlow;
                 cover.second.x() = xhigh;
                 return;
@@ -587,20 +545,19 @@ Router_t::getCover(const EndPoint_t &src, CoverType type, line_t &cover)
         } while (lineIter != _m1Barriers.begin());
         break;
     case TOP:
-        if (src.justStart()) {
-            objectPoint.y() += _designRule.viaWidth() / 2;
-        }
         lineIter = _m1Barriers.upper_bound(objectPoint.y());
-        while (lineIter != _m1Barriers.end()) {
-            oaInt4 xlow = lineIter->second.first.x() - _designRule.metalSpacing();
-            oaInt4 xhigh = lineIter->second.second.x() + _designRule.metalSpacing();
+        for (; lineIter != _m1Barriers.end(); ++lineIter) {
+            if (netID(lineIter) == src.netID()) {
+                continue; 
+            }
+            oaInt4 xlow = lineSeg(lineIter).first.x() - _designRule.metalSpacing();
+            oaInt4 xhigh = lineSeg(lineIter).second.x() + _designRule.metalSpacing();
             if (xlow <= objectPoint.x() && objectPoint.x() <= xhigh) {
-                cover.first.y() = cover.second.y() = lineIter->first;
+                cover.first.y() = cover.second.y() = coord(lineIter);
                 cover.first.x() = xlow;
                 cover.second.x() = xhigh;
                 return;
             }
-            ++lineIter;
         }
         break;
     default:
@@ -610,7 +567,7 @@ Router_t::getCover(const EndPoint_t &src, CoverType type, line_t &cover)
 }
 
 void
-Router_t::addObstacle(oaLayerNum layer, const oa::oaBox &box)
+Router_t::addObstacle(oaLayerNum layer, oaInt4 netID, const oa::oaBox &box)
 {
     if (METAL1 == layer) {
         line_t bottomEdge(oaPoint(box.left(), box.bottom()), \
@@ -619,8 +576,8 @@ Router_t::addObstacle(oaLayerNum layer, const oa::oaBox &box)
         line_t topEdge(oaPoint(box.left(), box.top()), \
                 oaPoint(box.right(), box.top()));
 
-        addHline(bottomEdge);
-        addHline(topEdge);
+        _m1Barriers.insert(make_pair(box.bottom(), make_pair(netID, bottomEdge)));
+        _m1Barriers.insert(make_pair(box.top(), make_pair(netID, topEdge)));
     }
     else if (METAL2 == layer) {
         line_t leftEdge(oaPoint(box.left(), box.bottom()), \
@@ -629,55 +586,11 @@ Router_t::addObstacle(oaLayerNum layer, const oa::oaBox &box)
         line_t rightEdge(oaPoint(box.right(), box.bottom()), \
                 oaPoint(box.right(), box.top()));
 
-        addVline(leftEdge);
-        addVline(rightEdge);
+        _m2Barriers.insert(make_pair(box.left(), make_pair(netID, leftEdge)));
+        _m2Barriers.insert(make_pair(box.right(), make_pair(netID, rightEdge)));
     }
     else {
         cerr << "Invalid layer!" << endl;
         exit(1);
-    }
-}
-
-void
-Router_t::addHline(const line_t &line)
-{
-    if (line.first.y() != line.second.y()) {
-        return;
-    }
-    LineSet_t::iterator it;
-
-    it = _m1Barriers.find(line.first.y()); 
-    if (it == _m1Barriers.end()) {
-        _m1Barriers[line.first.y()] = line;
-    }
-    else {
-        if (it->second.first.x() > line.first.x()) {
-            it->second.first.x() = line.first.x();
-        }
-        if (it->second.second.x() < line.second.x()) {
-            it->second.second.x() = line.second.x();
-        }
-    }
-}
-
-void
-Router_t::addVline(const line_t &line)
-{
-    if (line.first.x() != line.second.x()) {
-        return;
-    }
-    LineSet_t::iterator it;
-
-    it = _m2Barriers.find(line.first.x()); 
-    if (it == _m2Barriers.end()) {
-        _m2Barriers[line.first.x()] = line;
-    }
-    else {
-        if (it->second.first.y() > line.first.y()) {
-            it->second.first.y() = line.first.y();
-        }
-        if (it->second.second.y() < line.second.y()) {
-            it->second.second.y() = line.second.y();
-        }
     }
 }
