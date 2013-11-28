@@ -19,7 +19,7 @@ private:
     // used in line-probing algorithm
     typedef std::multimap<oa::oaCoord, std::pair<oa::oaUInt4, line_t> > BarrierSet_t;
     
-    void reorderNets() { return ; }
+    void reorderNets();
     bool routeOneNet(const Net_t &net);
     bool routeVDD(const Net_t &net);
     bool routeVSS(const Net_t &net);

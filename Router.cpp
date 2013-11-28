@@ -138,6 +138,13 @@ Router_t::route()
     return result;
 }
 
+void
+Router_t::reorderNets()
+{
+    return;
+}
+
+
 bool
 Router_t::routeOneNet(const Net_t &net)
 {
