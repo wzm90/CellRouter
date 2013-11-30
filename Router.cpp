@@ -92,7 +92,6 @@ Router_t::Router_t(oaDesign *design, oaTech *tech, ifstream &file1,\
     addObstacle(METAL2, -1, routeRegionBox);
     // add all contacts as obstacles
     NetSet_t::const_iterator netIter;
-    // contacts in VDD net
     for (netIter = _nets.begin(); netIter != _nets.end(); ++netIter) {
         Net_t::const_iterator citer;
         for (citer = netIter->begin(); citer != netIter->end(); ++citer) {
@@ -102,6 +101,20 @@ Router_t::Router_t(oaDesign *design, oaTech *tech, ifstream &file1,\
             oaBox contactBBox(*citer, upperRight);
             addObstacle(METAL1, netIter->id(), contactBBox);
             addObstacle(METAL2, netIter->id(), contactBBox);
+        }
+    }
+
+    // create via for each contact
+    // if there is a performance issue, put this operation into the same loop
+    // with adding contacts as obstacles
+    for (netIter = _nets.begin(); netIter != _nets.end(); ++netIter) {
+        Net_t::const_iterator citer;
+        for (citer = netIter->begin(); citer != netIter->end(); ++citer) {
+            oaPoint upperRight(citer->x() + _designRule.viaWidth(), \
+                    citer->y() + _designRule.viaHeight());
+
+            oaBox viaBox(*citer, upperRight);
+            oaRect::create(_design->getTopBlock(), VIA1, 1, viaBox);
         }
     }
     
@@ -304,10 +317,10 @@ Router_t::routeTwoContacts(EndPoint_t &lhs, EndPoint_t &rhs)
     PointSet_t::const_iterator it2 = src->cornerPoints().begin();
     ++it2;
     createWire(intersectionPoint, *it1, src->netID());
-    createVia(intersectionPoint, src->netID());
+    createVia(intersectionPoint);
     for (; it2 != src->cornerPoints().end(); ++it1, ++it2) {
         createWire(*it1, *it2, src->netID());
-        createVia(*it1, src->netID());
+        createVia(*it1);
     }
 
     it1 = dst->cornerPoints().begin();
@@ -316,7 +329,7 @@ Router_t::routeTwoContacts(EndPoint_t &lhs, EndPoint_t &rhs)
     createWire(intersectionPoint, *it1, dst->netID());
     for (; it2 != dst->cornerPoints().end(); ++it1, ++it2) {
         createWire(*it1, *it2, dst->netID());
-        createVia(*it1, dst->netID());
+        createVia(*it1);
     }
     return true;
 }
@@ -546,7 +559,7 @@ Router_t::createWire(const oaPoint &lhs, const oaPoint &rhs, oaInt4 netID)
 }
 
 void
-Router_t::createVia(const oaPoint &point, oaInt4 netID)
+Router_t::createVia(const oaPoint &point)
 {
     oaCoord left, right, bottom, top;
     left = point.x() - _designRule.viaWidth() / 2;

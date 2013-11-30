@@ -26,7 +26,7 @@ private:
     bool routeSignal(const Net_t &net);
     bool routeIO(const Net_t &net);
     void createWire(const oa::oaPoint &lhs, const oa::oaPoint &rhs, oa::oaInt4 netID);
-    void createVia(const oa::oaPoint &point, oa::oaInt4 netID);
+    void createVia(const oa::oaPoint &point);
     bool routeTwoContacts(EndPoint_t &lhs, EndPoint_t &rhs);
     // escape: perform escape algorithm
     bool escape(EndPoint_t &src, EndPoint_t &dst, oa::oaPoint &intersectionPoint);
