@@ -245,7 +245,62 @@ Router_t::routeVDD(const Net_t &net)
 bool
 Router_t::routeVSS(const Net_t &net)
 {
-    return true;
+    oaBoolean noViolation = true;
+    set<oaPoint, bool(*)(const oaPoint&, const oaPoint&)> contactPoints(compx);
+    set<oaPoint, bool(*)(const oaPoint&, const oaPoint&)>::iterator piter;
+    Net_t::const_iterator it;
+
+    for (it = net.begin(); it != net.end(); ++it) {
+        piter = contactPoints.find(*it);
+        if (piter == contactPoints.end()) {
+            // check violations and continue even with violation
+            set<oaPoint, bool(*)(const oaPoint&, const oaPoint&)>::iterator iter;
+            iter = contactPoints.lower_bound(*it);
+            if (iter != contactPoints.end() && iter != contactPoints.begin()) {
+                --iter;
+                if ((it->x() - iter->x()) < (_designRule.viaWidth() + \
+                            _designRule.metalSpacing())) {
+                    noViolation = false;
+                }
+            }
+            iter = contactPoints.upper_bound(*it);
+            if (iter != contactPoints.end()) {
+                if ((iter->x() - it->x()) < (_designRule.viaWidth() + \
+                            _designRule.metalSpacing())) {
+                    noViolation = false;
+                }
+            }
+            // insert point
+            contactPoints.insert(*it);
+        }
+        else {
+            if (it->y() > piter->y()) {
+                // if new point is "above" the old one, replace the old one
+                // otherwise do nothing
+                contactPoints.erase(piter);
+                contactPoints.insert(*it);
+            } 
+        } 
+    }
+
+    // connect all points in set to VDD rail using metal1
+    for (piter = contactPoints.begin(); piter != contactPoints.end(); ++piter) {
+        // since point of each contact is leftdown point of the bounding box
+        // we need to shift it to the center of bounding box
+        oaPoint A(piter->x() + _designRule.viaWidth() / 2, \
+                piter->y() + _designRule.viaHeight() / 2);
+        
+        oaPoint B(A.x(), _VSSBox.top());
+        createWire(A, B, net.id());
+    } 
+
+    if (noViolation) {
+        return true;
+    }
+    else {
+        cout << "DRC violation in routing VSS net." << endl;
+        return false;
+    }
 }
 
 
