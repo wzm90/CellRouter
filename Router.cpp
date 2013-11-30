@@ -527,12 +527,12 @@ Router_t::getEscapePoint(EndPoint_t &src)
     getCover(src, RIGHT, rightCover);
 
     vector<oaPoint> extremeties;
-    if (bottomCover.first.y() != _m1Barriers.begin()->first) {
+    if (bottomCover.first.y() != _VSSBox.top()) {
         // check if bottomCover reaches VSS rail
         extremeties.push_back(bottomCover.first);
         extremeties.push_back(bottomCover.second);
     } 
-    if (topCover.first.y() != _m1Barriers.rbegin()->first) {
+    if (topCover.first.y() != _VDDBox.bottom()) {
         // check if topCover reaches VDD rail
         extremeties.push_back(topCover.first);
         extremeties.push_back(topCover.second);
@@ -547,8 +547,8 @@ Router_t::getEscapePoint(EndPoint_t &src)
     // Escape Process I
     for (pIter = extremeties.begin(); pIter != extremeties.end(); ++pIter) {
         if (pIter->x() < objectPoint.x()) {
-            if (pIter->x() - leftCover.first.x() >= _designRule.metalWidth()) {
-                escapePoint.x() = pIter->x() - _designRule.metalWidth() / 2;
+            if ((pIter->x() - leftCover.first.x()) >= 0) {
+                escapePoint.x() = pIter->x();
                 escapePoint.y() = objectPoint.y();
                 if (!src.onEscapeLines(escapePoint, VERTICAL)) {
                     src.setOrient(VERTICAL);
@@ -558,8 +558,8 @@ Router_t::getEscapePoint(EndPoint_t &src)
             }
         }
         else {
-            if (rightCover.first.x() - pIter->x() >= _designRule.metalWidth()) {
-                escapePoint.x() = pIter->x() + _designRule.metalWidth() / 2;
+            if ((rightCover.first.x() - pIter->x()) >= 0) {
+                escapePoint.x() = pIter->x();
                 escapePoint.y() = objectPoint.y();
                 if (!src.onEscapeLines(escapePoint, VERTICAL)) {
                     src.setOrient(VERTICAL);
@@ -572,20 +572,20 @@ Router_t::getEscapePoint(EndPoint_t &src)
 
     // sort extremeties
     extremeties.clear();
-    if (leftCover.first.x() != _m2Barriers.begin()->first) {
+    if (leftCover.first.x() != _VDDBox.left()) {
         extremeties.push_back(leftCover.first);
         extremeties.push_back(leftCover.second);
     } 
-    if (rightCover.first.x() != _m2Barriers.rbegin()->first) {
+    if (rightCover.first.x() != _VDDBox.right()) {
         extremeties.push_back(rightCover.first);
         extremeties.push_back(rightCover.second);
     }
     sort(extremeties.begin(), extremeties.end(), comp);
     for (pIter = extremeties.begin(); pIter != extremeties.end(); ++pIter) {
         if (pIter->y() < objectPoint.y()) {
-            if (pIter->y() - bottomCover.first.y() >= _designRule.metalWidth()) {
+            if ((pIter->y() - bottomCover.first.y()) >= 0) {
                 escapePoint.x() = objectPoint.x();
-                escapePoint.y() = pIter->y() - _designRule.metalWidth() / 2;
+                escapePoint.y() = pIter->y();
                 if (!src.onEscapeLines(escapePoint, HORIZONTAL)) {
                     src.setOrient(HORIZONTAL);
                     src.addEscapePoint(escapePoint);
@@ -594,9 +594,9 @@ Router_t::getEscapePoint(EndPoint_t &src)
             }
         }
         else {
-            if (topCover.first.y() - pIter->y() >= _designRule.metalWidth()) {
+            if ((topCover.first.y() - pIter->y()) >= 0) {
                 escapePoint.x() = objectPoint.x();
-                escapePoint.y() = pIter->y() + _designRule.metalWidth() / 2;
+                escapePoint.y() = pIter->y();
                 if (!src.onEscapeLines(escapePoint, HORIZONTAL)) {
                     src.setOrient(HORIZONTAL);
                     src.addEscapePoint(escapePoint);
@@ -698,8 +698,14 @@ Router_t::getCover(const EndPoint_t &src, CoverType type, line_t &cover)
             if (netID(lineIter) == src.netID()) {
                 continue; 
             }
-            oaInt4 ylow = lineSeg(lineIter).first.y() - _designRule.metalSpacing();
-            oaInt4 yhigh = lineSeg(lineIter).second.y() + _designRule.metalSpacing();
+            oaInt4 ylow = lineSeg(lineIter).first.y() - \
+                          _designRule.metalSpacing() - \
+                          _designRule.metalWidth() / 2;
+
+            oaInt4 yhigh = lineSeg(lineIter).second.y() + \
+                           _designRule.metalSpacing() + \
+                           _designRule.metalWidth() / 2;
+
             if (ylow <= objectPoint.y() && objectPoint.y() <= yhigh) {
                 cover.first.x() = cover.second.x() = coord(lineIter);
                 cover.first.y() = ylow;
@@ -714,8 +720,14 @@ Router_t::getCover(const EndPoint_t &src, CoverType type, line_t &cover)
             if (netID(lineIter) == src.netID()) {
                 continue;
             }
-            oaInt4 ylow = lineSeg(lineIter).first.y() - _designRule.metalSpacing();
-            oaInt4 yhigh = lineSeg(lineIter).second.y() + _designRule.metalSpacing();
+            oaInt4 ylow = lineSeg(lineIter).first.y() - \
+                          _designRule.metalSpacing() - \
+                          _designRule.metalWidth() / 2;
+
+            oaInt4 yhigh = lineSeg(lineIter).second.y() + \
+                           _designRule.metalSpacing() + \
+                           _designRule.metalWidth() / 2;
+
             if (ylow <= objectPoint.y() && objectPoint.y() <= yhigh) {
                 cover.first.x() = cover.second.x() = coord(lineIter);
                 cover.first.y() = ylow;
@@ -731,8 +743,14 @@ Router_t::getCover(const EndPoint_t &src, CoverType type, line_t &cover)
             if (netID(lineIter) == src.netID()) {
                 continue; 
             }
-            oaInt4 xlow = lineSeg(lineIter).first.x() - _designRule.metalSpacing();
-            oaInt4 xhigh = lineSeg(lineIter).second.x() + _designRule.metalSpacing();
+            oaInt4 xlow = lineSeg(lineIter).first.x() - \
+                          _designRule.metalSpacing() - \
+                          _designRule.metalWidth() / 2;
+
+            oaInt4 xhigh = lineSeg(lineIter).second.x() + \
+                           _designRule.metalSpacing() + \
+                           _designRule.metalWidth() / 2;
+
             if (xlow <= objectPoint.x() && objectPoint.x() <= xhigh) {
                 cover.first.y() = cover.second.y() = coord(lineIter);
                 cover.first.x() = xlow;
@@ -747,8 +765,13 @@ Router_t::getCover(const EndPoint_t &src, CoverType type, line_t &cover)
             if (netID(lineIter) == src.netID()) {
                 continue; 
             }
-            oaInt4 xlow = lineSeg(lineIter).first.x() - _designRule.metalSpacing();
-            oaInt4 xhigh = lineSeg(lineIter).second.x() + _designRule.metalSpacing();
+            oaInt4 xlow = lineSeg(lineIter).first.x() - \
+                          _designRule.metalSpacing() - \
+                          _designRule.metalWidth() / 2;
+
+            oaInt4 xhigh = lineSeg(lineIter).second.x() + \
+                           _designRule.metalSpacing() + \
+                           _designRule.metalWidth() / 2;
             if (xlow <= objectPoint.x() && objectPoint.x() <= xhigh) {
                 cover.first.y() = cover.second.y() = coord(lineIter);
                 cover.first.x() = xlow;

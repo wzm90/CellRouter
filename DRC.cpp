@@ -16,7 +16,7 @@ DRC_t::DRC_t(ifstream &file)
         cout << line << endl;
 #endif
         istringstream ss(line);
-        oaUInt4 value;
+        oaInt4 value;
         int i;
         for (i = 0; i < 6 && (ss >> value); ++i) {
             switch (i) {
