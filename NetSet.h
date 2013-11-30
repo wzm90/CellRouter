@@ -4,7 +4,7 @@
 #include <fstream>
 #include "oaDesignDB.h"
 #include "Net.h"
-#include "RouterConfig.h"
+#include "RouterType.h"
 
 class NetSet_t : public std::vector<Net_t> {
 public:

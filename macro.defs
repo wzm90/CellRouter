@@ -186,7 +186,7 @@ ifeq ($(OPTMODE),dbg)
    DEBUG = -g
 else
    LIB_OPT=opt
-   DEBUG = -O -g
+   DEBUG = -O0 -g
 endif
 
 OA_LIB_DIR = $(TOOLSDIR)/lib/$(PLATFORM)$(SYSNAME_OPTIONS)/$(LIB_OPT)

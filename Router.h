@@ -17,7 +17,7 @@ private:
     typedef enum { LEFT, BOTTOM, RIGHT, TOP } CoverType;
     // BarrierSet_t: containters for storing line barriers, 
     // used in line-probing algorithm
-    typedef std::multimap<oa::oaCoord, std::pair<oa::oaUInt4, line_t> > BarrierSet_t;
+    typedef std::multimap<oa::oaCoord, std::pair<oa::oaInt4, line_t> > BarrierSet_t;
     
     void reorderNets();
     bool routeOneNet(const Net_t &net);
@@ -25,10 +25,11 @@ private:
     bool routeVSS(const Net_t &net);
     bool routeSignal(const Net_t &net);
     bool routeIO(const Net_t &net);
-    void createWire(const oa::oaPoint &lhs, const oa::oaPoint &rhs, oa::oaInt4 width);
+    void createWire(const oa::oaPoint &lhs, const oa::oaPoint &rhs, oa::oaInt4 netID);
+    void createVia(const oa::oaPoint &point, oa::oaInt4 netID);
     bool routeTwoContacts(EndPoint_t &lhs, EndPoint_t &rhs);
     // escape: perform escape algorithm
-    bool escape(EndPoint_t &src, EndPoint_t &dst);
+    bool escape(EndPoint_t &src, EndPoint_t &dst, oa::oaPoint &intersectionPoint);
     void getEscapeLine(const EndPoint_t &src, Orient_t orient, line_t &escapeLine);
     void getEscapePoint(EndPoint_t &src); 
     void getCover(const EndPoint_t &src, CoverType type, line_t &cover);

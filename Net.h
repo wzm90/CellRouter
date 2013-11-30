@@ -3,7 +3,7 @@
 
 #include <vector>
 #include "oaDesignDB.h"
-#include "RouterConfig.h"
+#include "RouterType.h"
 
 class Net_t : public std::vector<oa::oaPoint> {
 public:

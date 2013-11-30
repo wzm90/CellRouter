@@ -238,6 +238,7 @@ Router_t::routeTwoContacts(EndPoint_t &lhs, EndPoint_t &rhs)
     bool intersect = false;
     EndPoint_t *src = &lhs;
     EndPoint_t *dst = &rhs;
+    oaPoint intersectionPoint;
 
     // Algorithm begins
     while (!intersect) {
@@ -251,11 +252,11 @@ Router_t::routeTwoContacts(EndPoint_t &lhs, EndPoint_t &rhs)
                 src = dst;
                 dst = temp;
                 // apply escape algorithm
-                intersect = escape(*src, *dst);
+                intersect = escape(*src, *dst, intersectionPoint);
             }
         }
         else {
-            intersect = escape(*src, *dst);
+            intersect = escape(*src, *dst, intersectionPoint);
             // swap src and dst
             EndPoint_t *temp = src;
             src = dst;
@@ -263,33 +264,76 @@ Router_t::routeTwoContacts(EndPoint_t &lhs, EndPoint_t &rhs)
         }
     }
     // apply refinement algorithm
+    
     PointSet_t points1 = src->escapePoints();
     PointSet_t points2 = dst->escapePoints();
     PointSet_t::const_iterator it;
+    cout << "Escape point of src are: " << endl;
     for (it = points1.begin(); it != points1.end(); ++it) {
         cout << "(" << it->x() << ", " << it->y() << ") ";
     } 
     cout << endl;
+    cout << "Cross point is: (" << intersectionPoint.x() << ", ";
+    cout << intersectionPoint.y() << ")" << endl;
+    // create a metal1 layer around cross point
+    //oaRect::create(_design->getTopBlock(), METAL1, 1, oaBox(intersectionPoint, 800));
+    cout << "Escape point of dst are: " << endl;
     for (it = points2.begin(); it != points2.end(); ++it) {
         cout << "(" << it->x() << ", " << it->y() << ") ";
     }
     cout << endl;
+    
+    src->getCornerPoints(intersectionPoint);
+    dst->getCornerPoints(intersectionPoint);
+    //PointSet_t::const_iterator it;
+    cout << "Corner points of src are as follows:" << endl;
+    for (it = src->cornerPoints().begin(); it != src->cornerPoints().end(); ++it) {
+        cout << "(" << it->x() << ", " << it->y() << ") ";
+    }
+    cout << endl;
+    
+    cout << "Corner points of dst are as follows:" << endl;
+    for (it = dst->cornerPoints().begin(); it != dst->cornerPoints().end(); ++it) {
+        cout << "(" << it->x() << ", " << it->y() << ") ";
+    }
+    cout << endl;
+    cout << endl;
+
+    // connect cornerPoints and intersectionPoint
+    PointSet_t::const_iterator it1 = src->cornerPoints().begin();
+    PointSet_t::const_iterator it2 = src->cornerPoints().begin();
+    ++it2;
+    createWire(intersectionPoint, *it1, src->netID());
+    createVia(intersectionPoint, src->netID());
+    for (; it2 != src->cornerPoints().end(); ++it1, ++it2) {
+        createWire(*it1, *it2, src->netID());
+        createVia(*it1, src->netID());
+    }
+
+    it1 = dst->cornerPoints().begin();
+    it2 = dst->cornerPoints().begin();
+    ++it2;
+    createWire(intersectionPoint, *it1, dst->netID());
+    for (; it2 != dst->cornerPoints().end(); ++it1, ++it2) {
+        createWire(*it1, *it2, dst->netID());
+        createVia(*it1, dst->netID());
+    }
     return true;
 }
 
 // escape algorithm
 bool
-Router_t::escape(EndPoint_t &src, EndPoint_t &dst)
+Router_t::escape(EndPoint_t &src, EndPoint_t &dst, oaPoint &intersectionPoint)
 {
     if ((src.orient() == HORIZONTAL) || (src.orient() == BOTH)) {
         line_t escapeLine;
         getEscapeLine(src, HORIZONTAL, escapeLine);
         // add escapeLine
         //
-        createWire(escapeLine.first, escapeLine.second, _designRule.metalWidth());
+        // createWire(escapeLine.first, escapeLine.second, _designRule.metalWidth());
 
         src.addHline(escapeLine);
-        if (dst.isIntersect(escapeLine)) {
+        if (dst.isIntersect(escapeLine, intersectionPoint)) {
             return true;
         }
     }
@@ -298,10 +342,10 @@ Router_t::escape(EndPoint_t &src, EndPoint_t &dst)
         getEscapeLine(src, VERTICAL, escapeLine);
         // add escapeLine
         //
-        createWire(escapeLine.first, escapeLine.second, _designRule.metalWidth());
+        // createWire(escapeLine.first, escapeLine.second, _designRule.metalWidth());
 
         src.addVline(escapeLine);
-        if (dst.isIntersect(escapeLine)) {
+        if (dst.isIntersect(escapeLine, intersectionPoint)) {
             return true;
         }
     }
@@ -356,11 +400,13 @@ Router_t::getEscapePoint(EndPoint_t &src)
     getCover(src, RIGHT, rightCover);
 
     vector<oaPoint> extremeties;
-    if (bottomCover.first.y() != _VSSBox.top()) {
+    if (bottomCover.first.y() != _m1Barriers.begin()->first) {
+        // check if bottomCover reaches VSS rail
         extremeties.push_back(bottomCover.first);
         extremeties.push_back(bottomCover.second);
     } 
-    if (topCover.first.y() != _VDDBox.bottom()) {
+    if (topCover.first.y() != _m1Barriers.rbegin()->first) {
+        // check if topCover reaches VDD rail
         extremeties.push_back(topCover.first);
         extremeties.push_back(topCover.second);
     }
@@ -399,11 +445,11 @@ Router_t::getEscapePoint(EndPoint_t &src)
 
     // sort extremeties
     extremeties.clear();
-    if (leftCover.first.x() != _VDDBox.left()) {
+    if (leftCover.first.x() != _m2Barriers.begin()->first) {
         extremeties.push_back(leftCover.first);
         extremeties.push_back(leftCover.second);
     } 
-    if (rightCover.first.x() != _VDDBox.right()) {
+    if (rightCover.first.x() != _m2Barriers.rbegin()->first) {
         extremeties.push_back(rightCover.first);
         extremeties.push_back(rightCover.second);
     }
@@ -438,8 +484,9 @@ Router_t::getEscapePoint(EndPoint_t &src)
 }
 
 void
-Router_t::createWire(const oaPoint &lhs, const oaPoint &rhs, oaInt4 width)
+Router_t::createWire(const oaPoint &lhs, const oaPoint &rhs, oaInt4 netID)
 {
+    oaInt4 width = _designRule.metalWidth();
     if (lhs != rhs) {
         if (lhs.x() == rhs.x()) {
             // create wire rect
@@ -461,7 +508,10 @@ Router_t::createWire(const oaPoint &lhs, const oaPoint &rhs, oaInt4 width)
                 wiretop = lhs.y() + _designRule.viaHeight() / 2;
             }
             oaBox wirebox(wireleft, wirebottom, wireright, wiretop);
-            oaRect::create(_design->getTopBlock(), METAL2, 1, wirebox);
+            oaRect::create(_design->getTopBlock(), METAL1, 1, wirebox);
+            // add wirebox as obstacle
+            addObstacle(METAL1, netID, wirebox);
+
         } else if (lhs.y() == rhs.y()) {
             // create wire rect
             //oaCoord wiretop = lhs.y() + _designRule.viaHeight();
@@ -481,7 +531,8 @@ Router_t::createWire(const oaPoint &lhs, const oaPoint &rhs, oaInt4 width)
             }
             oaBox wirebox(wireleft, wirebottom, wireright, wiretop);
             oaRect::create(_design->getTopBlock(), METAL2, 1, wirebox);
-            
+            // add wirebox as obstacle 
+            addObstacle(METAL2, netID, wirebox);
         }
     }
 #ifdef DEBUG
@@ -492,6 +543,18 @@ Router_t::createWire(const oaPoint &lhs, const oaPoint &rhs, oaInt4 width)
         exit(1);
     }
 #endif
+}
+
+void
+Router_t::createVia(const oaPoint &point, oaInt4 netID)
+{
+    oaCoord left, right, bottom, top;
+    left = point.x() - _designRule.viaWidth() / 2;
+    right = point.x() + _designRule.viaWidth() / 2;
+    bottom = point.y() - _designRule.viaHeight() / 2;
+    top = point.y() + _designRule.viaHeight() / 2;
+
+    oaRect::create(_design->getTopBlock(), VIA1, 1, oaBox(left, bottom, right, top));
 }
 
 void

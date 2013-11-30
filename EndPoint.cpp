@@ -58,7 +58,7 @@ EndPoint_t::addVline(const line_t &newline)
 }
 
 bool
-EndPoint_t::isIntersect(const line_t &line) const 
+EndPoint_t::isIntersect(const line_t &line, oaPoint &intersectionPoint) const
 {
     if (line.first.x() == line.second.x()) {
         // vertical line
@@ -75,6 +75,9 @@ EndPoint_t::isIntersect(const line_t &line) const
         for (lineIter = low; lineIter != high; ++lineIter) {
             if (lineIter->second.first.x() <= xpos && \
                     xpos <= lineIter->second.second.x()) {
+                intersectionPoint.x() = xpos;
+                intersectionPoint.y() = lineIter->second.first.y();
+                // get corner points
                 return true;
             }
         }
@@ -95,6 +98,8 @@ EndPoint_t::isIntersect(const line_t &line) const
         for (lineIter = low; lineIter != high; ++lineIter) {
             if (lineIter->second.first.y() <= ypos && \
                     ypos <= lineIter->second.second.y()) {
+                intersectionPoint.x() = lineIter->second.first.x();
+                intersectionPoint.y() = ypos;
                 return true;
             }
         }
@@ -147,4 +152,75 @@ EndPoint_t::onEscapeLines(const oaPoint &point, Orient_t orient) const
     }
 
     return false;
+}
+
+
+void
+EndPoint_t::getCornerPoints(const oaPoint &intersectionPoint)
+{
+    // find the escapePoint that are on the same line with intersectionPoint
+    PointSet_t::iterator last = _escapePoints.end();
+    Orient_t lineOrient;
+    oaPoint reference;
+    
+    for (PointSet_t::iterator it = _escapePoints.begin(); it != _escapePoints.end(); ++it) {
+        if (it->x() == intersectionPoint.x()) {
+            // search vertical lines
+            LineSet_t::iterator lineIter = _vlines.find(it->x());
+            if (lineIter != _vlines.end() && lineIter->second.contains(*it) && lineIter->second.contains(intersectionPoint)) {
+                last = it;
+                // search horizontal lines in finding next corner point
+                lineOrient = HORIZONTAL;
+                reference = *it;
+                _cornerPoints.push_back(*it);
+                break;
+            }
+        }
+        if (it->y() == intersectionPoint.y()) {
+            // Consider the case that *it is the same point as intersectionPoint
+            
+            // search horizontal lines
+            LineSet_t::iterator lineIter = _hlines.find(it->y());
+            if (lineIter != _hlines.end() && lineIter->second.contains(*it) && lineIter->second.contains(intersectionPoint)) {
+                last = it;
+                // search vertical lines in finding next corner point
+                lineOrient = VERTICAL;
+                reference = *it;
+                _cornerPoints.push_back(*it);
+                break;
+            }
+        }
+    }
+    if (last == _escapePoints.end()) {
+        cerr << "Internal error in getCornerPoints." << endl;
+        exit(1);
+    }  
+    while (last != _escapePoints.begin()) {
+        if (lineOrient == VERTICAL) {
+            for (PointSet_t::iterator it = _escapePoints.begin(); it != last; ++it) {
+                // check if *it and reference are on the same line
+                LineSet_t::iterator lineIter = _vlines.find(it->x());
+                if (lineIter != _vlines.end() && lineIter->second.contains(*it) && lineIter->second.contains(reference)) {
+                    last = it;
+                    lineOrient = HORIZONTAL;
+                    reference = *it;
+                    _cornerPoints.push_back(*it);
+                    break;
+                }
+            } 
+        }
+        else {
+            for (PointSet_t::iterator it = _escapePoints.begin(); it != last; ++it) {
+                // check if *it and reference are on the same line
+                LineSet_t::iterator lineIter = _hlines.find(it->y());
+                if (lineIter != _hlines.end() && lineIter->second.contains(*it) && lineIter->second.contains(reference)) {
+                    last = it;
+                    lineOrient = VERTICAL;
+                    reference = *it;
+                    _cornerPoints.push_back(*it);
+                    break;
+                }
+            } 
+        }
+    }
 }
