@@ -94,7 +94,7 @@ Router_t::Router_t(oaDesign *design, oaTech *tech, ifstream &file1,\
 
     addObstacle(METAL1, -1, routeRegionBox);
     addObstacle(METAL2, -1, routeRegionBox);
-    // add all contacts as obstacles
+    // add all contacts as M1 obstacles
     NetSet_t::const_iterator netIter;
     for (netIter = _nets.begin(); netIter != _nets.end(); ++netIter) {
         Net_t::const_iterator citer;
@@ -104,7 +104,7 @@ Router_t::Router_t(oaDesign *design, oaTech *tech, ifstream &file1,\
 
             oaBox contactBBox(*citer, upperRight);
             addObstacle(METAL1, netIter->id(), contactBBox);
-            addObstacle(METAL2, netIter->id(), contactBBox);
+            //addObstacle(METAL2, netIter->id(), contactBBox);
         }
     }
 
@@ -527,12 +527,14 @@ Router_t::getEscapePoint(EndPoint_t &src)
     getCover(src, RIGHT, rightCover);
 
     vector<oaPoint> extremeties;
-    if (bottomCover.first.y() != _VSSBox.top()) {
+    if (bottomCover.first.y() != _VSSBox.top() + _designRule.metalSpacing() + \
+            _designRule.metalWidth() / 2) {
         // check if bottomCover reaches VSS rail
         extremeties.push_back(bottomCover.first);
         extremeties.push_back(bottomCover.second);
     } 
-    if (topCover.first.y() != _VDDBox.bottom()) {
+    if (topCover.first.y() != _VDDBox.bottom() - _designRule.metalSpacing() - \
+            _designRule.metalWidth() / 2) {
         // check if topCover reaches VDD rail
         extremeties.push_back(topCover.first);
         extremeties.push_back(topCover.second);
@@ -548,7 +550,7 @@ Router_t::getEscapePoint(EndPoint_t &src)
     for (pIter = extremeties.begin(); pIter != extremeties.end(); ++pIter) {
         if (pIter->x() < objectPoint.x()) {
             if ((pIter->x() - leftCover.first.x()) >= 0) {
-                escapePoint.x() = pIter->x();
+                escapePoint.x() = (pIter->x() + leftCover.first.x()) / 2;
                 escapePoint.y() = objectPoint.y();
                 if (!src.onEscapeLines(escapePoint, VERTICAL)) {
                     src.setOrient(VERTICAL);
@@ -559,7 +561,7 @@ Router_t::getEscapePoint(EndPoint_t &src)
         }
         else {
             if ((rightCover.first.x() - pIter->x()) >= 0) {
-                escapePoint.x() = pIter->x();
+                escapePoint.x() = (pIter->x() + rightCover.first.x()) / 2;
                 escapePoint.y() = objectPoint.y();
                 if (!src.onEscapeLines(escapePoint, VERTICAL)) {
                     src.setOrient(VERTICAL);
@@ -572,11 +574,13 @@ Router_t::getEscapePoint(EndPoint_t &src)
 
     // sort extremeties
     extremeties.clear();
-    if (leftCover.first.x() != _VDDBox.left()) {
+    if (leftCover.first.x() != _VDDBox.left() + _designRule.metalSpacing() + \
+            _designRule.metalWidth() / 2) {
         extremeties.push_back(leftCover.first);
         extremeties.push_back(leftCover.second);
     } 
-    if (rightCover.first.x() != _VDDBox.right()) {
+    if (rightCover.first.x() != _VDDBox.right() - _designRule.metalSpacing() - \
+            _designRule.metalWidth() / 2) {
         extremeties.push_back(rightCover.first);
         extremeties.push_back(rightCover.second);
     }
@@ -585,7 +589,7 @@ Router_t::getEscapePoint(EndPoint_t &src)
         if (pIter->y() < objectPoint.y()) {
             if ((pIter->y() - bottomCover.first.y()) >= 0) {
                 escapePoint.x() = objectPoint.x();
-                escapePoint.y() = pIter->y();
+                escapePoint.y() = (pIter->y() + bottomCover.first.y()) / 2;
                 if (!src.onEscapeLines(escapePoint, HORIZONTAL)) {
                     src.setOrient(HORIZONTAL);
                     src.addEscapePoint(escapePoint);
@@ -596,7 +600,7 @@ Router_t::getEscapePoint(EndPoint_t &src)
         else {
             if ((topCover.first.y() - pIter->y()) >= 0) {
                 escapePoint.x() = objectPoint.x();
-                escapePoint.y() = pIter->y();
+                escapePoint.y() = (pIter->y() + topCover.first.y()) / 2;
                 if (!src.onEscapeLines(escapePoint, HORIZONTAL)) {
                     src.setOrient(HORIZONTAL);
                     src.addEscapePoint(escapePoint);
@@ -625,16 +629,21 @@ Router_t::createWire(const oaPoint &lhs, const oaPoint &rhs, oaInt4 netID)
                 //wirebottom = lhs.y() - _designRule.viaExtension();
                 //wiretop = rhs.y() + _designRule.viaHeight() + \
                           _designRule.viaExtension();
-                wirebottom = lhs.y() - _designRule.viaHeight() / 2;
-                wiretop = rhs.y() + _designRule.viaHeight() / 2;
+                wirebottom = lhs.y() - _designRule.viaHeight() / 2 - \
+                             _designRule.viaExtension();
+                wiretop = rhs.y() + _designRule.viaHeight() / 2 + \
+                          _designRule.viaExtension();
             } else {
                 //wirebottom = rhs.y() - _designRule.viaExtension();
                 //wiretop = lhs.y() + _designRule.viaHeight() + \
                           _designRule.viaExtension();
-                wirebottom = rhs.y() - _designRule.viaHeight() / 2;
-                wiretop = lhs.y() + _designRule.viaHeight() / 2;
+                wirebottom = rhs.y() - _designRule.viaHeight() / 2 - \
+                             _designRule.viaExtension();
+                wiretop = lhs.y() + _designRule.viaHeight() / 2 + \
+                          _designRule.viaExtension();
             }
             oaBox wirebox(wireleft, wirebottom, wireright, wiretop);
+
             oaRect::create(_design->getTopBlock(), METAL1, 1, wirebox);
             // add wirebox as obstacle
             addObstacle(METAL1, netID, wirebox);
@@ -650,11 +659,15 @@ Router_t::createWire(const oaPoint &lhs, const oaPoint &rhs, oaInt4 netID)
                 //wireleft = lhs.x() - _designRule.viaExtension();
                 //wireright = rhs.x() + _designRule.viaWidth() + \
                             _designRule.viaExtension();
-                wireleft = lhs.x() - _designRule.viaWidth() / 2;
-                wireright = rhs.x() + _designRule.viaWidth() / 2;
+                wireleft = lhs.x() - _designRule.viaWidth() / 2 - \
+                           _designRule.viaExtension();
+                wireright = rhs.x() + _designRule.viaWidth() / 2 + \
+                            _designRule.viaExtension();
             } else {
-                wireleft = rhs.x() - _designRule.viaWidth() / 2;
-                wireright = lhs.x() + _designRule.viaWidth() / 2;
+                wireleft = rhs.x() - _designRule.viaWidth() / 2 - \
+                           _designRule.viaExtension();
+                wireright = lhs.x() + _designRule.viaWidth() / 2 + \
+                            _designRule.viaExtension();
             }
             oaBox wirebox(wireleft, wirebottom, wireright, wiretop);
             oaRect::create(_design->getTopBlock(), METAL2, 1, wirebox);
@@ -707,7 +720,9 @@ Router_t::getCover(const EndPoint_t &src, CoverType type, line_t &cover)
                            _designRule.metalWidth() / 2;
 
             if (ylow <= objectPoint.y() && objectPoint.y() <= yhigh) {
-                cover.first.x() = cover.second.x() = coord(lineIter);
+                cover.first.x() = cover.second.x() = coord(lineIter) + \
+                                  _designRule.metalSpacing() + \
+                                  _designRule.metalWidth() / 2;
                 cover.first.y() = ylow;
                 cover.second.y() = yhigh;
                 return;
@@ -729,7 +744,9 @@ Router_t::getCover(const EndPoint_t &src, CoverType type, line_t &cover)
                            _designRule.metalWidth() / 2;
 
             if (ylow <= objectPoint.y() && objectPoint.y() <= yhigh) {
-                cover.first.x() = cover.second.x() = coord(lineIter);
+                cover.first.x() = cover.second.x() = coord(lineIter) - \
+                                  _designRule.metalSpacing() - \
+                                  _designRule.metalWidth() / 2;
                 cover.first.y() = ylow;
                 cover.second.y() = yhigh;
                 return;
@@ -752,7 +769,9 @@ Router_t::getCover(const EndPoint_t &src, CoverType type, line_t &cover)
                            _designRule.metalWidth() / 2;
 
             if (xlow <= objectPoint.x() && objectPoint.x() <= xhigh) {
-                cover.first.y() = cover.second.y() = coord(lineIter);
+                cover.first.y() = cover.second.y() = coord(lineIter) + \
+                                  _designRule.metalSpacing() + \
+                                  _designRule.metalWidth() / 2;
                 cover.first.x() = xlow;
                 cover.second.x() = xhigh;
                 return;
@@ -773,7 +792,9 @@ Router_t::getCover(const EndPoint_t &src, CoverType type, line_t &cover)
                            _designRule.metalSpacing() + \
                            _designRule.metalWidth() / 2;
             if (xlow <= objectPoint.x() && objectPoint.x() <= xhigh) {
-                cover.first.y() = cover.second.y() = coord(lineIter);
+                cover.first.y() = cover.second.y() = coord(lineIter) - \
+                                  _designRule.metalSpacing() -
+                                  _designRule.metalWidth() / 2;
                 cover.first.x() = xlow;
                 cover.second.x() = xhigh;
                 return;
