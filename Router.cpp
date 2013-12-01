@@ -150,12 +150,6 @@ Router_t::route()
 
     for (netIter = _nets.begin(); netIter != _nets.end(); ++netIter) {
         bool oneResult = routeOneNet(*netIter);
-        /*
-        if (netIter->type() == S && netIter->size() > 2) {
-            result = oneResult && result;
-            break;
-        }
-        */
         result = oneResult && result;
     }
     return result;
@@ -314,40 +308,20 @@ bool
 Router_t::routeSignal(const Net_t &net)
 {
     if (net.size() > 1) {
-        /*
-        sort(net.begin(), net.end(), compx);        
-        oaCoord y_val = net[net.size() / 2].y();
-        oaCoord xmin = _VDDBox.right(); 
-        oaCoord xmax = _VDDBox.left();
-        Net_t::const_iterator netIter;
-        for (netIter = net.begin(); netIter != net.end(); ++netIter) {
-            if (netIter->x() < xmin) {
-                xmin = netIter->x();
-            }
-            if (netIter->x() > xmax) {
-                xmax = netIter->x();
-            }
-        }
-        oaPoint leftEnd(xmin, y_val);
-        oaPoint rightEnd(xmax, y_val);
-        createWire(leftEnd, rightEnd);
-        
-        for (netIter = net.begin(); netIter != net.end(); ++netIter) {
-            oaPoint steiner(netIter->x(), y_val);
-            createWire(*netIter, steiner);
-        }
-        */
+        bool result = true;
         Net_t::const_iterator it1 = net.begin();
         Net_t::const_iterator it2 = net.begin();
         ++it2;
+        for (; it2 != net.end(); ++it1, ++it2) {
+            EndPoint_t A(it1->x()+_designRule.viaWidth()/2, \
+                it1->y()+_designRule.viaHeight()/2, net.id());
 
-        EndPoint_t A(it1->x()+_designRule.viaWidth()/2, \
-            it1->y()+_designRule.viaHeight()/2, net.id());
+            EndPoint_t B(it2->x()+_designRule.viaWidth()/2, \
+                it2->y()+_designRule.viaHeight()/2, net.id());
 
-        EndPoint_t B(it2->x()+_designRule.viaWidth()/2, \
-            it2->y()+_designRule.viaHeight()/2, net.id());
-
-        return routeTwoContacts(A, B);
+            result = routeTwoContacts(A, B) && result;
+        }
+        return result;
     } 
 
     return true;
@@ -357,7 +331,7 @@ Router_t::routeSignal(const Net_t &net)
 bool
 Router_t::routeIO(const Net_t &net)
 {
-    return true;
+    return routeSignal(net);
 }
 
 // Route two contacts using line-probing algorithm as described in
