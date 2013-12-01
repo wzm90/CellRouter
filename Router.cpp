@@ -150,6 +150,12 @@ Router_t::route()
 
     for (netIter = _nets.begin(); netIter != _nets.end(); ++netIter) {
         bool oneResult = routeOneNet(*netIter);
+        /*
+        if (netIter->type() == S && netIter->size() > 2) {
+            result = oneResult && result;
+            break;
+        }
+        */
         result = oneResult && result;
     }
     return result;
@@ -502,13 +508,22 @@ Router_t::getEscapeLine(const EndPoint_t &src, Orient_t orient, line_t &escapeLi
             return;
         }
         escapeLine.first.y() = escapeLine.second.y() = src.getObjectPoint().y();       
-        escapeLine.first.x() = leftCover.first.x() + \
-                               _designRule.metalSpacing() + \
-                               _designRule.metalWidth() / 2;
-
-        escapeLine.second.x() = rightCover.first.x() - \
-                                _designRule.metalSpacing() - \
-                                _designRule.metalWidth() / 2;
+        if (leftCover.first.x() == _VDDBox.left()) {
+            escapeLine.first.x() = leftCover.first.x();
+        }
+        else {
+            escapeLine.first.x() = leftCover.first.x() + \
+                                   _designRule.metalSpacing() + \
+                                   _designRule.metalWidth() / 2;
+        }
+        if (rightCover.first.x() == _VDDBox.right()) {
+            escapeLine.second.x() = rightCover.first.x();
+        }
+        else {
+            escapeLine.second.x() = rightCover.first.x() - \
+                                    _designRule.metalSpacing() - \
+                                    _designRule.metalWidth() / 2;
+        }
     }
     else if (orient == VERTICAL) {
         line_t bottomCover, topCover;
@@ -520,13 +535,22 @@ Router_t::getEscapeLine(const EndPoint_t &src, Orient_t orient, line_t &escapeLi
             return;
         }
         escapeLine.first.x() = escapeLine.second.x() = src.getObjectPoint().x();
-        escapeLine.first.y() = bottomCover.first.y() + \
-                               _designRule.metalSpacing() + \
-                               _designRule.metalWidth() / 2;
-
-        escapeLine.second.y() = topCover.first.y() - \
-                                _designRule.metalSpacing() - \
-                                _designRule.metalWidth() / 2;
+        if (bottomCover.first.y() == _VSSBox.top()) {
+            escapeLine.first.y() = bottomCover.first.y();
+        }
+        else {
+            escapeLine.first.y() = bottomCover.first.y() + \
+                                   _designRule.metalSpacing() + \
+                                   _designRule.metalWidth() / 2;
+        }
+        if (topCover.first.y() == _VDDBox.bottom()) {
+            escapeLine.second.y() = topCover.first.y();
+        }
+        else {
+            escapeLine.second.y() = topCover.first.y() - \
+                                    _designRule.metalSpacing() - \
+                                    _designRule.metalWidth() / 2;
+        }
     }
     else {
         cerr << "Invalid orient!" << endl;
@@ -555,25 +579,33 @@ Router_t::getEscapePoint(EndPoint_t &src)
 
     oaInt4 movement = _designRule.metalSpacing() + _designRule.metalWidth() / 2;
 
-    bottomCover.first.x() -= movement;
-    bottomCover.second.x() += movement;
-    bottomCover.first.y() += movement;
-    bottomCover.second.y() += movement;
-
-    topCover.first.x() -= movement;
-    topCover.second.x() += movement;
-    topCover.first.y() -= movement;
-    topCover.second.y() -= movement;
-
-    leftCover.first.y() -= movement;
-    leftCover.second.y() += movement;
-    leftCover.first.x() += movement;
-    leftCover.second.x() += movement;
-
-    rightCover.first.y() -= movement;
-    rightCover.second.y() += movement;
-    rightCover.first.x() -= movement;
-    rightCover.second.x() -= movement;
+    if (bottomCover.first.y() != _VSSBox.top()) {
+        bottomCover.first.x() -= movement;
+        bottomCover.second.x() += movement;
+        bottomCover.first.y() += movement;
+        bottomCover.second.y() += movement;
+    }
+    
+    if (topCover.first.y() != _VDDBox.bottom()) {
+        topCover.first.x() -= movement;
+        topCover.second.x() += movement;
+        topCover.first.y() -= movement;
+        topCover.second.y() -= movement;
+    }
+    
+    if (leftCover.first.x() != _VDDBox.left()) {
+        leftCover.first.y() -= movement;
+        leftCover.second.y() += movement;
+        leftCover.first.x() += movement;
+        leftCover.second.x() += movement;
+    }
+    
+    if (rightCover.first.x() != _VDDBox.right()) {
+        rightCover.first.y() -= movement;
+        rightCover.second.y() += movement;
+        rightCover.first.x() -= movement;
+        rightCover.second.x() -= movement;
+    }
 
     vector<oaPoint> extremeties;
     Comparator comp(objectPoint);
@@ -581,12 +613,12 @@ Router_t::getEscapePoint(EndPoint_t &src)
     oaPoint escapePoint;
 
     if (!noHorizontalEscape) {
-        if (bottomCover.first.y() > _VSSBox.top() + movement) {
+        if (bottomCover.first.y() != _VSSBox.top()) {
             // check if bottomCover reaches VSS rail
             extremeties.push_back(bottomCover.first);
             extremeties.push_back(bottomCover.second);
         } 
-        if (topCover.first.y() < _VDDBox.bottom() - movement) {
+        if (topCover.first.y() != _VDDBox.bottom()) {
             // check if topCover reaches VDD rail
             extremeties.push_back(topCover.first);
             extremeties.push_back(topCover.second);
@@ -598,7 +630,23 @@ Router_t::getEscapePoint(EndPoint_t &src)
         for (pIter = extremeties.begin(); pIter != extremeties.end(); ++pIter) {
             if (pIter->x() < objectPoint.x()) {
                 if ((pIter->x() - leftCover.first.x()) >= 0) {
-                    escapePoint.x() = (pIter->x() + leftCover.first.x()) / 2;
+                    if (src.orient() == VERTICAL) {
+                        // continue on horizontal line, step can be less than minimum step
+                        escapePoint.x() = pIter->x();
+                    }
+                    else {
+                        oaInt4 xval = objectPoint.x() - _designRule.minimumStep();
+                        if (xval > pIter->x()) {
+                            escapePoint.x() = pIter->x();
+                        }
+                        else if (xval < leftCover.first.x()) {
+                            escapePoint.x() = leftCover.first.x();
+                        }
+                        else {
+                            escapePoint.x() = xval;
+                        }
+                    }
+                    // escapePoint.x() = (pIter->x() + leftCover.first.x()) / 2;
                     escapePoint.y() = objectPoint.y();
                     if (!src.onEscapeLines(escapePoint, VERTICAL)) {
                         src.setOrient(VERTICAL);
@@ -609,7 +657,23 @@ Router_t::getEscapePoint(EndPoint_t &src)
             }
             else {
                 if ((rightCover.first.x() - pIter->x()) >= 0) {
-                    escapePoint.x() = (pIter->x() + rightCover.first.x()) / 2;
+                    if (src.orient() == VERTICAL) {
+                        // continue on horizontal line
+                        escapePoint.x() = pIter->x();
+                    }
+                    else {
+                        oaInt4 xval = objectPoint.x() + _designRule.minimumStep();
+                        if (xval < pIter->x()) {
+                            escapePoint.x() = pIter->x();
+                        }
+                        else if (xval > rightCover.first.x()) {
+                            escapePoint.x() = rightCover.first.x();
+                        }
+                        else {
+                            escapePoint.x() = xval;
+                        }
+                    }
+                    //escapePoint.x() = (pIter->x() + rightCover.first.x()) / 2;
                     escapePoint.y() = objectPoint.y();
                     if (!src.onEscapeLines(escapePoint, VERTICAL)) {
                         src.setOrient(VERTICAL);
@@ -624,11 +688,11 @@ Router_t::getEscapePoint(EndPoint_t &src)
     // sort extremeties
     extremeties.clear();
     if (!noVerticalEscape) {
-        if (leftCover.first.x() > (_VDDBox.left() + movement)) {
+        if (leftCover.first.x() != _VDDBox.left()) {
             extremeties.push_back(leftCover.first);
             extremeties.push_back(leftCover.second);
         } 
-        if (rightCover.first.x() < (_VDDBox.right() - movement)) {
+        if (rightCover.first.x() != _VDDBox.right()) {
             extremeties.push_back(rightCover.first);
             extremeties.push_back(rightCover.second);
         }
@@ -636,8 +700,24 @@ Router_t::getEscapePoint(EndPoint_t &src)
         for (pIter = extremeties.begin(); pIter != extremeties.end(); ++pIter) {
             if (pIter->y() < objectPoint.y()) {
                 if ((pIter->y() - bottomCover.first.y()) >= 0) {
+                    if (src.orient() == HORIZONTAL) {
+                        // continue on horizontal line
+                        escapePoint.y() = pIter->y();
+                    }
+                    else  {
+                        oaInt4 yval = objectPoint.y() - _designRule.minimumStep();
+                        if (yval > pIter->y()) {
+                            escapePoint.y() = pIter->y();
+                        }
+                        else if (yval < bottomCover.first.y()) {
+                            escapePoint.y() = bottomCover.first.y();
+                        }
+                        else {
+                            escapePoint.y() = yval;
+                        }
+                    }
                     escapePoint.x() = objectPoint.x();
-                    escapePoint.y() = (pIter->y() + bottomCover.first.y()) / 2;
+                    //escapePoint.y() = (pIter->y() + bottomCover.first.y()) / 2;
                     if (!src.onEscapeLines(escapePoint, HORIZONTAL)) {
                         src.setOrient(HORIZONTAL);
                         src.addEscapePoint(escapePoint);
@@ -647,8 +727,24 @@ Router_t::getEscapePoint(EndPoint_t &src)
             }
             else {
                 if ((topCover.first.y() - pIter->y()) >= 0) {
+                    if (src.orient() == HORIZONTAL) {
+                        // continue on horizontal line
+                        escapePoint.y() = pIter->y();
+                    }
+                    else {
+                        oaInt4 yval = objectPoint.y() + _designRule.minimumStep();
+                        if (yval < pIter->y()) {
+                            escapePoint.y() = pIter->y();
+                        }
+                        else if (yval > topCover.first.y()) {
+                            escapePoint.y() = topCover.first.y();
+                        }
+                        else {
+                            escapePoint.y() = yval;
+                        }
+                    }
                     escapePoint.x() = objectPoint.x();
-                    escapePoint.y() = (pIter->y() + topCover.first.y()) / 2;
+                    //escapePoint.y() = (pIter->y() + topCover.first.y()) / 2;
                     if (!src.onEscapeLines(escapePoint, HORIZONTAL)) {
                         src.setOrient(HORIZONTAL);
                         src.addEscapePoint(escapePoint);
@@ -769,7 +865,7 @@ Router_t::getCover(const EndPoint_t &src, CoverType type, line_t &cover)
                            _designRule.metalSpacing() + \
                            _designRule.metalWidth() / 2;
 
-            if (ylow <= objectPoint.y() && objectPoint.y() <= yhigh) {
+            if (ylow < objectPoint.y() && objectPoint.y() < yhigh) {
                 cover = lineSeg(lineIter);
                 return;
             }
@@ -789,7 +885,7 @@ Router_t::getCover(const EndPoint_t &src, CoverType type, line_t &cover)
                            _designRule.metalSpacing() + \
                            _designRule.metalWidth() / 2;
 
-            if (ylow <= objectPoint.y() && objectPoint.y() <= yhigh) {
+            if (ylow < objectPoint.y() && objectPoint.y() < yhigh) {
                 cover = lineSeg(lineIter);
                 return;
             }
@@ -810,7 +906,7 @@ Router_t::getCover(const EndPoint_t &src, CoverType type, line_t &cover)
                            _designRule.metalSpacing() + \
                            _designRule.metalWidth() / 2;
 
-            if (xlow <= objectPoint.x() && objectPoint.x() <= xhigh) {
+            if (xlow < objectPoint.x() && objectPoint.x() < xhigh) {
                 cover = lineSeg(lineIter);
                 return;
             }
@@ -829,7 +925,7 @@ Router_t::getCover(const EndPoint_t &src, CoverType type, line_t &cover)
             oaInt4 xhigh = lineSeg(lineIter).second.x() + \
                            _designRule.metalSpacing() + \
                            _designRule.metalWidth() / 2;
-            if (xlow <= objectPoint.x() && objectPoint.x() <= xhigh) {
+            if (xlow < objectPoint.x() && objectPoint.x() < xhigh) {
                 cover = lineSeg(lineIter);
                 return;
             }
