@@ -108,6 +108,7 @@ Router_t::Router_t(oaDesign *design, oaTech *tech, ifstream &file1,\
         }
     }
 
+    /*
     // create via for each contact
     // if there is a performance issue, put this operation into the same loop
     // with adding contacts as obstacles
@@ -121,7 +122,7 @@ Router_t::Router_t(oaDesign *design, oaTech *tech, ifstream &file1,\
             oaRect::create(_design->getTopBlock(), VIA1, 1, viaBox);
         }
     }
-    
+    */ 
 
     // create metal2 layer and via1 layer if any of them does not exist
     oaLayer * layer;
@@ -407,23 +408,74 @@ Router_t::routeTwoContacts(EndPoint_t &lhs, EndPoint_t &rhs)
     cout << endl;
 
     // connect cornerPoints and intersectionPoint
+    // create via for intersectionPoint
+    
+    if (intersectionPoint != src->cornerPoints().back() && \
+            intersectionPoint != dst->cornerPoints().back()) {
+        createVia(intersectionPoint);
+    }
+    else if (intersectionPoint == src->cornerPoints().back()) {
+        if (intersectionPoint.y() == dst->cornerPoints().front().y()) {
+            createVia(intersectionPoint);
+        }
+    }
+    else {
+        if (intersectionPoint.y() == src->cornerPoints().front().y()) {
+            createVia(intersectionPoint);
+        }
+    }
+    
+    // connect src points
     PointSet_t::const_iterator it1 = src->cornerPoints().begin();
     PointSet_t::const_iterator it2 = src->cornerPoints().begin();
     ++it2;
     createWire(intersectionPoint, *it1, src->netID());
-    createVia(intersectionPoint);
+    
+    // may need to create via for it1
+    if (*it1 == src->cornerPoints().back()) {
+        if (intersectionPoint != *it1 && intersectionPoint.y() == it1->y()) {
+            createVia(*it1);
+        }
+    }
+    
     for (; it2 != src->cornerPoints().end(); ++it1, ++it2) {
         createWire(*it1, *it2, src->netID());
         createVia(*it1);
+        
+        // may need to createVia for contact
+        if (*it2 == src->cornerPoints().back()) {
+            if (it1->y() == it2->y()) {
+                // contact is connected to metal2 layer
+                createVia(*it2);
+            }
+        }
+        
     }
 
+    // connect dst points
     it1 = dst->cornerPoints().begin();
     it2 = dst->cornerPoints().begin();
     ++it2;
     createWire(intersectionPoint, *it1, dst->netID());
+    
+    if (*it1 == dst->cornerPoints().back()) {
+        if (intersectionPoint != *it1 && intersectionPoint.y() == it1->y()) {
+            createVia(*it1);
+        }
+    }
+    
     for (; it2 != dst->cornerPoints().end(); ++it1, ++it2) {
         createWire(*it1, *it2, dst->netID());
         createVia(*it1);
+        
+        // may need to create Via for contact
+        if (*it2 == dst->cornerPoints().back()) {
+            if (it1->y() == it2->y()) {
+                // contact is connected to metal2 layer
+                createVia(*it2);
+            }
+        }
+        
     }
     return true;
 }
