@@ -370,6 +370,21 @@ Router_t::routeSignal(const Net_t &net)
         Net_t::const_iterator it2 = net.begin();
         ++it2;
         for (; it2 != net.end(); ++it1, ++it2) {
+            oaInt4 xdiff = it1->x() - it2->x();
+            if ((xdiff > 0 && xdiff < _designRule.viaWidth()) || \
+                    (xdiff < 0 && xdiff > -_designRule.viaWidth())) {
+                oaCoord wireLeft = (it1->x() < it2->x()) ? it1->x() : it2->x();
+                oaCoord wireRight = (it1->x() > it2->x()) ? it1->x() : it2->x();
+                wireRight += _designRule.viaWidth();
+                oaCoord wireBottom = (it1->y() < it2->y()) ? it1->y() : it2->y();
+                oaCoord wireTop = (it1->y() > it2->y()) ? it1->y() : it2->y();
+                wireTop += (_designRule.viaHeight() + _designRule.viaExtension());
+                wireBottom -= (_designRule.viaExtension());
+                oaBox wireBox(wireLeft, wireBottom, wireRight, wireTop);
+                oaRect::create(_design->getTopBlock(), METAL1, 1, wireBox);
+                addObstacle(METAL1, net.id(), wireBox);
+                continue;
+            }
             EndPoint_t A(it1->x()+_designRule.viaWidth()/2, \
                 it1->y()+_designRule.viaHeight()/2, net.id());
 
@@ -409,6 +424,22 @@ Router_t::routeIO(const Net_t &net)
             oaFont(oacRomanFont), oaDist(1000), false, true, true);
 
     for (; it2 != net.end(); ++it1, ++it2) {
+        oaInt4 xdiff = it1->x() - it2->x();
+        if ((xdiff > 0 && xdiff < _designRule.viaWidth()) || \
+                (xdiff < 0 && xdiff > -_designRule.viaWidth())) {
+            wireLeft = (it1->x() < it2->x()) ? it1->x() : it2->x();
+            wireRight = (it1->x() > it2->x()) ? it1->x() : it2->x();
+            wireRight += _designRule.viaWidth();
+            wireBottom = (it1->y() < it2->y()) ? it1->y() : it2->y();
+            wireTop = (it1->y() > it2->y()) ? it1->y() : it2->y();
+            wireTop += (_designRule.viaHeight() + _designRule.viaExtension());
+            wireBottom -= (_designRule.viaExtension());
+
+            oaBox wireBox(wireLeft, wireBottom, wireRight, wireTop);
+            oaRect::create(_design->getTopBlock(), METAL1, 1, wireBox);
+            addObstacle(METAL1, net.id(), wireBox);
+            continue;
+        }
         EndPoint_t A(it1->x()+_designRule.viaWidth()/2, \
             it1->y()+_designRule.viaHeight()/2, net.id());
 
