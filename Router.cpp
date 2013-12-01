@@ -459,9 +459,11 @@ Router_t::escape(EndPoint_t &src, EndPoint_t &dst, oaPoint &intersectionPoint)
         //
         // createWire(escapeLine.first, escapeLine.second, _designRule.metalWidth());
 
-        src.addHline(escapeLine);
-        if (dst.isIntersect(escapeLine, intersectionPoint)) {
-            return true;
+        if (escapeLine.first != escapeLine.second) {
+            src.addHline(escapeLine);
+            if (dst.isIntersect(escapeLine, intersectionPoint)) {
+                return true;
+            }
         }
     }
     if ((src.orient() == VERTICAL) || (src.orient() == BOTH)) {
@@ -471,9 +473,11 @@ Router_t::escape(EndPoint_t &src, EndPoint_t &dst, oaPoint &intersectionPoint)
         //
         // createWire(escapeLine.first, escapeLine.second, _designRule.metalWidth());
 
-        src.addVline(escapeLine);
-        if (dst.isIntersect(escapeLine, intersectionPoint)) {
-            return true;
+        if (escapeLine.first != escapeLine.second) {
+            src.addVline(escapeLine);
+            if (dst.isIntersect(escapeLine, intersectionPoint)) {
+                return true;
+            }
         }
     }
     // get escapePoint
@@ -492,17 +496,37 @@ Router_t::getEscapeLine(const EndPoint_t &src, Orient_t orient, line_t &escapeLi
         line_t leftCover, rightCover;
         getCover(src, LEFT, leftCover);
         getCover(src, RIGHT, rightCover);
+        if (sameBox(leftCover, rightCover)) {
+            cout << "leftcover and right cover are in the same box." << endl;
+            escapeLine.first = escapeLine.second = src.getObjectPoint();
+            return;
+        }
         escapeLine.first.y() = escapeLine.second.y() = src.getObjectPoint().y();       
-        escapeLine.first.x() = leftCover.first.x();
-        escapeLine.second.x() = rightCover.first.x();
+        escapeLine.first.x() = leftCover.first.x() + \
+                               _designRule.metalSpacing() + \
+                               _designRule.metalWidth() / 2;
+
+        escapeLine.second.x() = rightCover.first.x() - \
+                                _designRule.metalSpacing() - \
+                                _designRule.metalWidth() / 2;
     }
     else if (orient == VERTICAL) {
         line_t bottomCover, topCover;
         getCover(src, BOTTOM, bottomCover);
         getCover(src, TOP, topCover);
+        if (sameBox(bottomCover, topCover)) {
+            cout << "bottomcover and topcover are in the same box." << endl;
+            escapeLine.first = escapeLine.second = src.getObjectPoint();
+            return;
+        }
         escapeLine.first.x() = escapeLine.second.x() = src.getObjectPoint().x();
-        escapeLine.first.y() = bottomCover.first.y();
-        escapeLine.second.y() = topCover.first.y();
+        escapeLine.first.y() = bottomCover.first.y() + \
+                               _designRule.metalSpacing() + \
+                               _designRule.metalWidth() / 2;
+
+        escapeLine.second.y() = topCover.first.y() - \
+                                _designRule.metalSpacing() - \
+                                _designRule.metalWidth() / 2;
     }
     else {
         cerr << "Invalid orient!" << endl;
@@ -526,47 +550,72 @@ Router_t::getEscapePoint(EndPoint_t &src)
     getCover(src, LEFT, leftCover);
     getCover(src, RIGHT, rightCover);
 
-    vector<oaPoint> extremeties;
-    if (bottomCover.first.y() != _VSSBox.top() + _designRule.metalSpacing() + \
-            _designRule.metalWidth() / 2) {
-        // check if bottomCover reaches VSS rail
-        extremeties.push_back(bottomCover.first);
-        extremeties.push_back(bottomCover.second);
-    } 
-    if (topCover.first.y() != _VDDBox.bottom() - _designRule.metalSpacing() - \
-            _designRule.metalWidth() / 2) {
-        // check if topCover reaches VDD rail
-        extremeties.push_back(topCover.first);
-        extremeties.push_back(topCover.second);
-    }
-    // sort extremeties
-    Comparator comp(objectPoint);
-    sort(extremeties.begin(), extremeties.end(), comp);
+    bool noHorizontalEscape = sameBox(leftCover, rightCover);
+    bool noVerticalEscape  = sameBox(bottomCover, topCover);
 
+    oaInt4 movement = _designRule.metalSpacing() + _designRule.metalWidth() / 2;
+
+    bottomCover.first.x() -= movement;
+    bottomCover.second.x() += movement;
+    bottomCover.first.y() += movement;
+    bottomCover.second.y() += movement;
+
+    topCover.first.x() -= movement;
+    topCover.second.x() += movement;
+    topCover.first.y() -= movement;
+    topCover.second.y() -= movement;
+
+    leftCover.first.y() -= movement;
+    leftCover.second.y() += movement;
+    leftCover.first.x() += movement;
+    leftCover.second.x() += movement;
+
+    rightCover.first.y() -= movement;
+    rightCover.second.y() += movement;
+    rightCover.first.x() -= movement;
+    rightCover.second.x() -= movement;
+
+    vector<oaPoint> extremeties;
+    Comparator comp(objectPoint);
     vector<oaPoint>::const_iterator pIter;
     oaPoint escapePoint;
 
-    // Escape Process I
-    for (pIter = extremeties.begin(); pIter != extremeties.end(); ++pIter) {
-        if (pIter->x() < objectPoint.x()) {
-            if ((pIter->x() - leftCover.first.x()) >= 0) {
-                escapePoint.x() = (pIter->x() + leftCover.first.x()) / 2;
-                escapePoint.y() = objectPoint.y();
-                if (!src.onEscapeLines(escapePoint, VERTICAL)) {
-                    src.setOrient(VERTICAL);
-                    src.addEscapePoint(escapePoint);
-                    return;
+    if (!noHorizontalEscape) {
+        if (bottomCover.first.y() > _VSSBox.top() + movement) {
+            // check if bottomCover reaches VSS rail
+            extremeties.push_back(bottomCover.first);
+            extremeties.push_back(bottomCover.second);
+        } 
+        if (topCover.first.y() < _VDDBox.bottom() - movement) {
+            // check if topCover reaches VDD rail
+            extremeties.push_back(topCover.first);
+            extremeties.push_back(topCover.second);
+        }
+        // sort extremeties
+        sort(extremeties.begin(), extremeties.end(), comp);
+
+        // Escape Process I
+        for (pIter = extremeties.begin(); pIter != extremeties.end(); ++pIter) {
+            if (pIter->x() < objectPoint.x()) {
+                if ((pIter->x() - leftCover.first.x()) >= 0) {
+                    escapePoint.x() = (pIter->x() + leftCover.first.x()) / 2;
+                    escapePoint.y() = objectPoint.y();
+                    if (!src.onEscapeLines(escapePoint, VERTICAL)) {
+                        src.setOrient(VERTICAL);
+                        src.addEscapePoint(escapePoint);
+                        return;
+                    }
                 }
             }
-        }
-        else {
-            if ((rightCover.first.x() - pIter->x()) >= 0) {
-                escapePoint.x() = (pIter->x() + rightCover.first.x()) / 2;
-                escapePoint.y() = objectPoint.y();
-                if (!src.onEscapeLines(escapePoint, VERTICAL)) {
-                    src.setOrient(VERTICAL);
-                    src.addEscapePoint(escapePoint);
-                    return;
+            else {
+                if ((rightCover.first.x() - pIter->x()) >= 0) {
+                    escapePoint.x() = (pIter->x() + rightCover.first.x()) / 2;
+                    escapePoint.y() = objectPoint.y();
+                    if (!src.onEscapeLines(escapePoint, VERTICAL)) {
+                        src.setOrient(VERTICAL);
+                        src.addEscapePoint(escapePoint);
+                        return;
+                    }
                 }
             }
         }
@@ -574,41 +623,42 @@ Router_t::getEscapePoint(EndPoint_t &src)
 
     // sort extremeties
     extremeties.clear();
-    if (leftCover.first.x() != _VDDBox.left() + _designRule.metalSpacing() + \
-            _designRule.metalWidth() / 2) {
-        extremeties.push_back(leftCover.first);
-        extremeties.push_back(leftCover.second);
-    } 
-    if (rightCover.first.x() != _VDDBox.right() - _designRule.metalSpacing() - \
-            _designRule.metalWidth() / 2) {
-        extremeties.push_back(rightCover.first);
-        extremeties.push_back(rightCover.second);
-    }
-    sort(extremeties.begin(), extremeties.end(), comp);
-    for (pIter = extremeties.begin(); pIter != extremeties.end(); ++pIter) {
-        if (pIter->y() < objectPoint.y()) {
-            if ((pIter->y() - bottomCover.first.y()) >= 0) {
-                escapePoint.x() = objectPoint.x();
-                escapePoint.y() = (pIter->y() + bottomCover.first.y()) / 2;
-                if (!src.onEscapeLines(escapePoint, HORIZONTAL)) {
-                    src.setOrient(HORIZONTAL);
-                    src.addEscapePoint(escapePoint);
-                    return;
+    if (!noVerticalEscape) {
+        if (leftCover.first.x() > (_VDDBox.left() + movement)) {
+            extremeties.push_back(leftCover.first);
+            extremeties.push_back(leftCover.second);
+        } 
+        if (rightCover.first.x() < (_VDDBox.right() - movement)) {
+            extremeties.push_back(rightCover.first);
+            extremeties.push_back(rightCover.second);
+        }
+        sort(extremeties.begin(), extremeties.end(), comp);
+        for (pIter = extremeties.begin(); pIter != extremeties.end(); ++pIter) {
+            if (pIter->y() < objectPoint.y()) {
+                if ((pIter->y() - bottomCover.first.y()) >= 0) {
+                    escapePoint.x() = objectPoint.x();
+                    escapePoint.y() = (pIter->y() + bottomCover.first.y()) / 2;
+                    if (!src.onEscapeLines(escapePoint, HORIZONTAL)) {
+                        src.setOrient(HORIZONTAL);
+                        src.addEscapePoint(escapePoint);
+                        return;
+                    }
+                }
+            }
+            else {
+                if ((topCover.first.y() - pIter->y()) >= 0) {
+                    escapePoint.x() = objectPoint.x();
+                    escapePoint.y() = (pIter->y() + topCover.first.y()) / 2;
+                    if (!src.onEscapeLines(escapePoint, HORIZONTAL)) {
+                        src.setOrient(HORIZONTAL);
+                        src.addEscapePoint(escapePoint);
+                        return;
+                    }
                 }
             }
         }
-        else {
-            if ((topCover.first.y() - pIter->y()) >= 0) {
-                escapePoint.x() = objectPoint.x();
-                escapePoint.y() = (pIter->y() + topCover.first.y()) / 2;
-                if (!src.onEscapeLines(escapePoint, HORIZONTAL)) {
-                    src.setOrient(HORIZONTAL);
-                    src.addEscapePoint(escapePoint);
-                    return;
-                }
-            }
-        }
     }
+
     src.setNoEscape(true);
     // Escape Process II
     // TO BE DONE LATER (if I still have time...)
@@ -720,11 +770,7 @@ Router_t::getCover(const EndPoint_t &src, CoverType type, line_t &cover)
                            _designRule.metalWidth() / 2;
 
             if (ylow <= objectPoint.y() && objectPoint.y() <= yhigh) {
-                cover.first.x() = cover.second.x() = coord(lineIter) + \
-                                  _designRule.metalSpacing() + \
-                                  _designRule.metalWidth() / 2;
-                cover.first.y() = ylow;
-                cover.second.y() = yhigh;
+                cover = lineSeg(lineIter);
                 return;
             }
         } while (lineIter != _m2Barriers.begin());
@@ -744,11 +790,7 @@ Router_t::getCover(const EndPoint_t &src, CoverType type, line_t &cover)
                            _designRule.metalWidth() / 2;
 
             if (ylow <= objectPoint.y() && objectPoint.y() <= yhigh) {
-                cover.first.x() = cover.second.x() = coord(lineIter) - \
-                                  _designRule.metalSpacing() - \
-                                  _designRule.metalWidth() / 2;
-                cover.first.y() = ylow;
-                cover.second.y() = yhigh;
+                cover = lineSeg(lineIter);
                 return;
             }
         }
@@ -769,11 +811,7 @@ Router_t::getCover(const EndPoint_t &src, CoverType type, line_t &cover)
                            _designRule.metalWidth() / 2;
 
             if (xlow <= objectPoint.x() && objectPoint.x() <= xhigh) {
-                cover.first.y() = cover.second.y() = coord(lineIter) + \
-                                  _designRule.metalSpacing() + \
-                                  _designRule.metalWidth() / 2;
-                cover.first.x() = xlow;
-                cover.second.x() = xhigh;
+                cover = lineSeg(lineIter);
                 return;
             }
         } while (lineIter != _m1Barriers.begin());
@@ -792,11 +830,7 @@ Router_t::getCover(const EndPoint_t &src, CoverType type, line_t &cover)
                            _designRule.metalSpacing() + \
                            _designRule.metalWidth() / 2;
             if (xlow <= objectPoint.x() && objectPoint.x() <= xhigh) {
-                cover.first.y() = cover.second.y() = coord(lineIter) - \
-                                  _designRule.metalSpacing() -
-                                  _designRule.metalWidth() / 2;
-                cover.first.x() = xlow;
-                cover.second.x() = xhigh;
+                cover = lineSeg(lineIter);
                 return;
             }
         }
@@ -810,28 +844,64 @@ Router_t::getCover(const EndPoint_t &src, CoverType type, line_t &cover)
 void
 Router_t::addObstacle(oaLayerNum layer, oaInt4 netID, const oa::oaBox &box)
 {
+    line_t bottomEdge(oaPoint(box.left(), box.bottom()), \
+            oaPoint(box.right(), box.bottom()));
+
+    line_t topEdge(oaPoint(box.left(), box.top()), \
+            oaPoint(box.right(), box.top()));
+
+    line_t leftEdge(oaPoint(box.left(), box.bottom()), \
+            oaPoint(box.left(), box.top()));
+
+    line_t rightEdge(oaPoint(box.right(), box.bottom()), \
+            oaPoint(box.right(), box.top()));
+
+
     if (METAL1 == layer) {
-        line_t bottomEdge(oaPoint(box.left(), box.bottom()), \
-                oaPoint(box.right(), box.bottom()));
-
-        line_t topEdge(oaPoint(box.left(), box.top()), \
-                oaPoint(box.right(), box.top()));
-
         _m1Barriers.insert(make_pair(box.bottom(), make_pair(netID, bottomEdge)));
         _m1Barriers.insert(make_pair(box.top(), make_pair(netID, topEdge)));
+        _m1Vlines.insert(make_pair(box.left(), make_pair(netID, leftEdge)));
+        _m1Vlines.insert(make_pair(box.right(), make_pair(netID, rightEdge)));
     }
     else if (METAL2 == layer) {
-        line_t leftEdge(oaPoint(box.left(), box.bottom()), \
-                oaPoint(box.left(), box.top()));
-
-        line_t rightEdge(oaPoint(box.right(), box.bottom()), \
-                oaPoint(box.right(), box.top()));
-
         _m2Barriers.insert(make_pair(box.left(), make_pair(netID, leftEdge)));
         _m2Barriers.insert(make_pair(box.right(), make_pair(netID, rightEdge)));
+        _m2Hlines.insert(make_pair(box.bottom(), make_pair(netID, bottomEdge)));
+        _m2Hlines.insert(make_pair(box.top(), make_pair(netID, topEdge)));
     }
     else {
         cerr << "Invalid layer!" << endl;
         exit(1);
     }
+}
+
+bool
+Router_t::sameBox(line_t &lhs, line_t &rhs)
+{
+    if (lhs.first.x() == rhs.first.x() && lhs.second.x() == rhs.second.x()) {
+        // horizontal lines 
+        pair<BarrierSet_t::iterator, BarrierSet_t::iterator> ret;
+        ret = _m1Vlines.equal_range(lhs.first.x());
+        BarrierSet_t::iterator it;
+        for (it = ret.first; it != ret.second; ++it) {
+            if (netID(it) != -1 && lineSeg(it).first.y() == lhs.first.y() && \
+                    lineSeg(it).second.y() == rhs.first.y()) {
+                return true;
+            }
+        }
+    } 
+    else if (lhs.first.y() == rhs.first.y() && lhs.second.y() == rhs.second.y()) {
+        // vertical lines
+        pair<BarrierSet_t::iterator, BarrierSet_t::iterator> ret;
+        ret = _m2Hlines.equal_range(lhs.first.y());
+        BarrierSet_t::iterator it;
+        for (it = ret.first; it != ret.second; ++it) {
+            if (netID(it) != -1 && lineSeg(it).first.x() == lhs.first.x() && \
+                    lineSeg(it).second.x() == rhs.first.x()) {
+                return true;
+            }
+        }
+    }
+    
+    return false;
 }

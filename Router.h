@@ -34,6 +34,7 @@ private:
     void getEscapePoint(EndPoint_t &src); 
     void getCover(const EndPoint_t &src, CoverType type, line_t &cover);
     void addObstacle(oa::oaLayerNum layer, oa::oaInt4 netID, const oa::oaBox &box);
+    bool sameBox(line_t &lhs, line_t &rhs);
 
     line_t &lineSeg(const BarrierSet_t::iterator &it) {return (it->second).second;}
     oa::oaInt4 netID(const BarrierSet_t::iterator &it) {return (it->second).first;}
@@ -46,6 +47,8 @@ private:
     NetSet_t _nets;
     DRC_t _designRule;
     BarrierSet_t _m1Barriers;
+    BarrierSet_t _m1Vlines;
     BarrierSet_t _m2Barriers;
+    BarrierSet_t _m2Hlines;
 };
 #endif
