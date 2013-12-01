@@ -332,7 +332,47 @@ Router_t::routeSignal(const Net_t &net)
 bool
 Router_t::routeIO(const Net_t &net)
 {
-    return routeSignal(net);
+    if (net.size() > 1) {
+        bool result = true;
+        Net_t::const_iterator it1 = net.begin();
+        Net_t::const_iterator it2 = net.begin();
+        ++it2;
+        // create oaText on metal1
+        oaText::create(_design->getTopBlock(), METAL2, 1, net.portName(), \
+                *it1, oaTextAlign(oacLowerLeftTextAlign), oaOrient(oacR0), \
+                oaFont(oacRomanFont), oaDist(1000), false, true, true);
+
+        for (; it2 != net.end(); ++it1, ++it2) {
+            EndPoint_t A(it1->x()+_designRule.viaWidth()/2, \
+                it1->y()+_designRule.viaHeight()/2, net.id());
+
+            EndPoint_t B(it2->x()+_designRule.viaWidth()/2, \
+                it2->y()+_designRule.viaHeight()/2, net.id());
+
+            result = routeTwoContacts(A, B) && result;
+        }
+        return result;
+    } 
+    else {
+        Net_t::const_iterator it = net.begin();
+        // create a rectangular on this point
+        oaCoord wireLeft = it->x() + _designRule.viaWidth() / 2 - \
+                           _designRule.metalWidth() / 2;
+        oaCoord wireBottom = it->y() - _designRule.viaExtension();
+        oaCoord wireRight = it->x() + _designRule.viaWidth() / 2 + \
+                            _designRule.metalWidth() / 2;
+        oaCoord wireTop = it->y() + _designRule.viaHeight() + \
+                          _designRule.viaExtension();
+        oaBox wireBox(wireLeft, wireBottom, wireRight, wireTop);
+        oaRect::create(_design->getTopBlock(), METAL1, 1, wireBox);
+        addObstacle(METAL1, net.id(), wireBox);
+        // create text
+        oaText::create(_design->getTopBlock(), METAL2, 1, net.portName(), \
+                *it, oaTextAlign(oacLowerLeftTextAlign), oaOrient(oacR0), \
+                oaFont(oacRomanFont), oaDist(1000), false, true, true);
+    }
+
+    return true;
 }
 
 // Route two contacts using line-probing algorithm as described in
