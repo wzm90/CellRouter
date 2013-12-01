@@ -44,6 +44,16 @@ Comparator::operator()(const oaPoint &lhs, const oaPoint &rhs)
     return (distance1 < distance2);
 }
 
+class ContactsNumComparator {
+public:
+    ContactsNumComparator(const map<oaInt4, oaInt4> &contactsNum) : _contactsNum(contactsNum) {}
+    bool operator()(const Net_t &lhs, const Net_t &rhs) {
+        return _contactsNum[lhs.id()] < _contactsNum[rhs.id()];
+    }
+private:
+    map<oaInt4, oaInt4> _contactsNum;
+};
+
 
 Router_t::Router_t(oaDesign *design, oaTech *tech, ifstream &file1,\
         ifstream &file2)
@@ -159,6 +169,52 @@ Router_t::route()
 void
 Router_t::reorderNets()
 {
+    map<oaInt4, oaInt4> contactsNum;
+    NetSet_t::iterator netIter1, netIter2;
+
+    // put VDD, VSS to the first two elements in _nets
+    for (netIter1 = _nets.begin(); netIter1 != _nets.end(); ++netIter1) {
+        if (netIter1->type() == VDD) {
+            // swap with the first element
+            Net_t temp = _nets.front();
+            _nets.front() = *netIter1;
+            *netIter1 = temp;
+        }
+    }
+    for (netIter1 = _nets.begin(); netIter1 != _nets.end(); ++netIter1) {
+        if (netIter1->type() == VSS) {
+            // swap with the second element
+            netIter2 = _nets.begin();
+            ++netIter2;
+            Net_t temp = *netIter2;
+            *netIter2 = *netIter1;
+            *netIter1 = temp;
+        }
+    }
+
+    for (netIter1 = _nets.begin(); netIter1 != _nets.end(); ++netIter1) {
+        contactsNum[netIter1->id()] = 0;
+    }
+
+    for (netIter1 = _nets.begin(); netIter1 != _nets.end(); ++netIter1) {
+        for (netIter2 = _nets.begin(); netIter2 != _nets.end(); ++netIter2) {
+            if (netIter2 != netIter1) {
+                for (Net_t::const_iterator it = netIter2->begin(); \
+                        it != netIter2->end(); ++it) {
+                    if (netIter1->contains(*it)) {
+                        contactsNum[netIter1->id()] += 1;
+                    }
+                }
+            }
+        }
+    }
+    ContactsNumComparator comp(contactsNum);
+    netIter1 = _nets.begin();
+    ++netIter1;
+    ++netIter1;
+    // do not sort _nets[0] and _nets[1]
+    sort(netIter1, _nets.end(), comp);
+
     return;
 }
 
@@ -332,47 +388,36 @@ Router_t::routeSignal(const Net_t &net)
 bool
 Router_t::routeIO(const Net_t &net)
 {
-    if (net.size() > 1) {
-        bool result = true;
-        Net_t::const_iterator it1 = net.begin();
-        Net_t::const_iterator it2 = net.begin();
-        ++it2;
-        // create oaText on metal1
-        oaText::create(_design->getTopBlock(), METAL2, 1, net.portName(), \
-                *it1, oaTextAlign(oacLowerLeftTextAlign), oaOrient(oacR0), \
-                oaFont(oacRomanFont), oaDist(1000), false, true, true);
+    bool result = true;
+    Net_t::const_iterator it1 = net.begin();
+    Net_t::const_iterator it2 = net.begin();
+    ++it2;
+    // create a rectangular on this point
+    oaCoord wireLeft = it1->x() + _designRule.viaWidth() / 2 - \
+                       _designRule.metalWidth() / 2;
+    oaCoord wireBottom = it1->y() - _designRule.viaExtension();
+    oaCoord wireRight = it1->x() + _designRule.viaWidth() / 2 + \
+                        _designRule.metalWidth() / 2;
+    oaCoord wireTop = it1->y() + _designRule.viaHeight() + \
+                      _designRule.viaExtension();
+    oaBox wireBox(wireLeft, wireBottom, wireRight, wireTop);
+    oaRect::create(_design->getTopBlock(), METAL1, 1, wireBox);
+    addObstacle(METAL1, net.id(), wireBox);
+    // create oaText on metal1
+    oaText::create(_design->getTopBlock(), METAL1, 1, net.portName(), \
+            *it1, oaTextAlign(oacLowerLeftTextAlign), oaOrient(oacR0), \
+            oaFont(oacRomanFont), oaDist(1000), false, true, true);
 
-        for (; it2 != net.end(); ++it1, ++it2) {
-            EndPoint_t A(it1->x()+_designRule.viaWidth()/2, \
-                it1->y()+_designRule.viaHeight()/2, net.id());
+    for (; it2 != net.end(); ++it1, ++it2) {
+        EndPoint_t A(it1->x()+_designRule.viaWidth()/2, \
+            it1->y()+_designRule.viaHeight()/2, net.id());
 
-            EndPoint_t B(it2->x()+_designRule.viaWidth()/2, \
-                it2->y()+_designRule.viaHeight()/2, net.id());
+        EndPoint_t B(it2->x()+_designRule.viaWidth()/2, \
+            it2->y()+_designRule.viaHeight()/2, net.id());
 
-            result = routeTwoContacts(A, B) && result;
-        }
-        return result;
-    } 
-    else {
-        Net_t::const_iterator it = net.begin();
-        // create a rectangular on this point
-        oaCoord wireLeft = it->x() + _designRule.viaWidth() / 2 - \
-                           _designRule.metalWidth() / 2;
-        oaCoord wireBottom = it->y() - _designRule.viaExtension();
-        oaCoord wireRight = it->x() + _designRule.viaWidth() / 2 + \
-                            _designRule.metalWidth() / 2;
-        oaCoord wireTop = it->y() + _designRule.viaHeight() + \
-                          _designRule.viaExtension();
-        oaBox wireBox(wireLeft, wireBottom, wireRight, wireTop);
-        oaRect::create(_design->getTopBlock(), METAL1, 1, wireBox);
-        addObstacle(METAL1, net.id(), wireBox);
-        // create text
-        oaText::create(_design->getTopBlock(), METAL2, 1, net.portName(), \
-                *it, oaTextAlign(oacLowerLeftTextAlign), oaOrient(oacR0), \
-                oaFont(oacRomanFont), oaDist(1000), false, true, true);
+        result = routeTwoContacts(A, B) && result;
     }
-
-    return true;
+    return result;
 }
 
 // Route two contacts using line-probing algorithm as described in
