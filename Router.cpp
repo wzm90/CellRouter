@@ -675,7 +675,12 @@ Router_t::escape(EndPoint_t &src, EndPoint_t &dst, oaPoint &intersectionPoint)
     }
     // get escapePoint
     if (!getEscapePointI(src)) {
-        if (!getEscapePointII(src)) {
+        bool intersectionFlag = false;
+        bool escapeII = getEscapePointII(src, dst, intersectionFlag, intersectionPoint);
+        if (intersectionFlag) {
+            return true;
+        }
+        else if (!escapeII) {
             src.setNoEscape(true);
         }
     }
@@ -1000,9 +1005,160 @@ Router_t::getEscapePointI(EndPoint_t &src)
 }
 
 bool
-Router_t::getEscapePointII(EndPoint_t &src)
+Router_t::getEscapePointII(EndPoint_t &src, const EndPoint_t &dst, \
+        bool &intersectionFlag, oaPoint &intersectionPoint)
 {
-    return false;
+    vector<oaPoint> r;
+    // get covers
+    line_t bottomCover, topCover, leftCover, rightCover;
+    oaPoint objectPoint = src.getObjectPoint();
+
+    getCover(src, BOTTOM, bottomCover);
+    getCover(src, TOP, topCover);
+    getCover(src, LEFT, leftCover);
+    getCover(src, RIGHT, rightCover);
+
+    bool noHorizontalEscape = sameBox(leftCover, rightCover);
+    bool noVerticalEscape  = sameBox(bottomCover, topCover);
+
+    oaInt4 movement = _designRule.metalSpacing() + _designRule.metalWidth() / 2;
+    
+    oaPoint leftEnd(leftCover.first.x(), objectPoint.y());
+    oaPoint rightEnd(rightCover.first.x(), objectPoint.y());
+    oaPoint bottomEnd(objectPoint.x(), bottomCover.first.y());
+    oaPoint topEnd(objectPoint.x(), topCover.first.y());
+
+    leftEnd += oaPoint(movement, 0);
+    rightEnd -= oaPoint(movement, 0);
+    bottomEnd += oaPoint(0, movement);
+    topEnd -= oaPoint(0, movement);
+
+    r.push_back(topEnd);
+    r.push_back(rightEnd);
+    r.push_back(bottomEnd);
+    r.push_back(leftEnd);
+    
+    bool r1, r2, r3, r4; 
+    r1 = r2 = r3 = r4 = true;
+    while (r1 || r2 || r3 || r4) {
+        for (int i = 0; i < r.size(); ++i) {
+            switch (i) {
+            case 0:
+                if (noVerticalEscape || (topCover.first.y() == _VDDBox.bottom()) || \
+                        r[i].y() <= objectPoint.y()) {
+                    r1 = false;
+                }
+                else {
+                    line_t escapeHline;
+                    src.addEscapePoint(r[i]);
+                    getEscapeLine(src, HORIZONTAL, escapeHline);
+                    if (dst.isIntersect(escapeHline, intersectionPoint)) {
+                        // add this line
+                        src.addHline(escapeHline);
+                        intersectionFlag = true;
+                        return true;
+                    }
+                    else {
+                        if (getEscapePointI(src)) {
+                            intersectionFlag = false;
+                            return true;
+                        }
+                        else {
+                            // remove r[i] from escapePoints vector
+                            src.removeEscapePoint();
+                            r[i] -= oaPoint(0, _designRule.minimumStep());
+                        }
+                    }
+                }
+                break;
+            case 1:
+                if (noHorizontalEscape || (rightCover.first.y() == _VDDBox.right()) || \
+                        r[i].x() <= objectPoint.x()) {
+                    r2 = false;
+                }
+                else {
+                    line_t escapeVline;
+                    src.addEscapePoint(r[i]);
+                    getEscapeLine(src, VERTICAL, escapeVline);
+                    if (dst.isIntersect(escapeVline, intersectionPoint)) {
+                        // add escapeVline
+                        src.addVline(escapeVline);
+                        intersectionFlag = true;
+                        return true;
+                    }
+                    else {
+                        if (getEscapePointI(src)) {
+                            intersectionFlag = false;
+                            return true;
+                        }
+                        else {
+                            // remove r[i] from escapePoints vector
+                            src.removeEscapePoint();
+                            r[i] -= oaPoint(_designRule.minimumStep(), 0);
+                        }
+                    }
+                }
+                break;
+            case 2:
+                if (noVerticalEscape || (bottomCover.first.y() == _VSSBox.top()) || \
+                        r[i].y() >= objectPoint.y()) {
+                    r3 = false;
+                }
+                else {
+                    line_t escapeHline;
+                    src.addEscapePoint(r[i]);
+                    getEscapeLine(src, HORIZONTAL, escapeHline);
+                    if (dst.isIntersect(escapeHline, intersectionPoint)) {
+                        src.addHline(escapeHline);
+                        intersectionFlag = true;
+                        return true;
+                    }
+                    else {
+                        if (getEscapePointI(src)) {
+                            intersectionFlag = false;
+                            return true;
+                        }
+                        else {
+                            // remove r[i] from escapePoints vector
+                            src.removeEscapePoint();
+                            r[i] += oaPoint(0, _designRule.minimumStep());
+                        }
+                    }
+                }
+                break;
+            case 3:
+                if (noHorizontalEscape || (leftCover.first.x() == _VDDBox.left()) || \
+                        r[i].x() >= objectPoint.x()) {
+                    r4 = false;
+                }
+                else {
+                    line_t escapeVline;
+                    src.addEscapePoint(r[i]);
+                    getEscapeLine(src, VERTICAL, escapeVline);
+                    oaPoint intersectionPoint;
+                    if (dst.isIntersect(escapeVline, intersectionPoint)) {
+                        src.addVline(escapeVline);
+                        intersectionFlag = true;
+                        return true;
+                    }
+                    else {
+                        if (getEscapePointI(src)) {
+                            intersectionFlag = false;
+                            return true;
+                        }
+                        else {
+                            // remove r[i] from escapePoints vector
+                            src.removeEscapePoint();
+                            r[i] -= oaPoint(_designRule.minimumStep(), 0);
+                        }
+                    }
+                }
+                break;
+            default:
+                break;
+            } 
+        }
+    } 
 }
 
 void
