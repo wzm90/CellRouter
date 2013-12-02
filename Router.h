@@ -31,7 +31,8 @@ private:
     // escape: perform escape algorithm
     bool escape(EndPoint_t &src, EndPoint_t &dst, oa::oaPoint &intersectionPoint);
     void getEscapeLine(const EndPoint_t &src, Orient_t orient, line_t &escapeLine);
-    void getEscapePoint(EndPoint_t &src); 
+    bool getEscapePointI(EndPoint_t &src); 
+    bool getEscapePointII(EndPoint_t &src);
     void getCover(const EndPoint_t &src, CoverType type, line_t &cover);
     void addObstacle(oa::oaLayerNum layer, oa::oaInt4 netID, const oa::oaBox &box);
     bool sameBox(line_t &lhs, line_t &rhs);

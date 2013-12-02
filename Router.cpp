@@ -104,35 +104,23 @@ Router_t::Router_t(oaDesign *design, oaTech *tech, ifstream &file1,\
 
     addObstacle(METAL1, -1, routeRegionBox);
     addObstacle(METAL2, -1, routeRegionBox);
-    // add all contacts as M1 obstacles
     NetSet_t::const_iterator netIter;
+    // create metal1 for each contact
     for (netIter = _nets.begin(); netIter != _nets.end(); ++netIter) {
         Net_t::const_iterator citer;
         for (citer = netIter->begin(); citer != netIter->end(); ++citer) {
             oaPoint upperRight(citer->x() + _designRule.viaWidth(), \
                     citer->y() + _designRule.viaHeight());
 
-            oaBox contactBBox(*citer, upperRight);
-            addObstacle(METAL1, netIter->id(), contactBBox);
-            //addObstacle(METAL2, netIter->id(), contactBBox);
+            oaBox m1Box(*citer, upperRight);
+            m1Box.bottom() -= _designRule.viaExtension();
+            m1Box.top() += _designRule.viaExtension();
+            oaRect::create(_design->getTopBlock(), METAL1, 1, m1Box);
+            // add all contacts as M1 obstacles
+            addObstacle(METAL1, netIter->id(), m1Box);
         }
     }
-
-    /*
-    // create via for each contact
-    // if there is a performance issue, put this operation into the same loop
-    // with adding contacts as obstacles
-    for (netIter = _nets.begin(); netIter != _nets.end(); ++netIter) {
-        Net_t::const_iterator citer;
-        for (citer = netIter->begin(); citer != netIter->end(); ++citer) {
-            oaPoint upperRight(citer->x() + _designRule.viaWidth(), \
-                    citer->y() + _designRule.viaHeight());
-
-            oaBox viaBox(*citer, upperRight);
-            oaRect::create(_design->getTopBlock(), VIA1, 1, viaBox);
-        }
-    }
-    */ 
+    
 
     // create metal2 layer and via1 layer if any of them does not exist
     oaLayer * layer;
@@ -686,7 +674,11 @@ Router_t::escape(EndPoint_t &src, EndPoint_t &dst, oaPoint &intersectionPoint)
         }
     }
     // get escapePoint
-    getEscapePoint(src);
+    if (!getEscapePointI(src)) {
+        if (!getEscapePointII(src)) {
+            src.setNoEscape(true);
+        }
+    }
     return false;
 }
 
@@ -761,8 +753,8 @@ Router_t::getEscapeLine(const EndPoint_t &src, Orient_t orient, line_t &escapeLi
 // object point. If escapePoint is found, set orientation flag, push
 // escapePoint to a list of previous escapePoints and return. Otherwise
 // set noEscape flag and return.
-void
-Router_t::getEscapePoint(EndPoint_t &src)
+bool
+Router_t::getEscapePointI(EndPoint_t &src)
 {
     // get covers
     line_t bottomCover, topCover, leftCover, rightCover;
@@ -861,7 +853,7 @@ Router_t::getEscapePoint(EndPoint_t &src)
                             src.removeEscapePoint();
                         }
                         else {
-                            return;
+                            return true;
                         }
                     }
                 }
@@ -900,7 +892,7 @@ Router_t::getEscapePoint(EndPoint_t &src)
                             src.removeEscapePoint();
                         }
                         else {
-                            return;
+                            return true;
                         }
                     }
                 }
@@ -955,7 +947,7 @@ Router_t::getEscapePoint(EndPoint_t &src)
                             src.removeEscapePoint();
                         }
                         else {
-                            return;
+                            return true;
                         }
                     }
                 }
@@ -994,7 +986,7 @@ Router_t::getEscapePoint(EndPoint_t &src)
                             src.removeEscapePoint();
                         }
                         else {
-                            return;
+                            return true;
                         }
                     }
                 }
@@ -1002,9 +994,15 @@ Router_t::getEscapePoint(EndPoint_t &src)
         }
     }
 
-    src.setNoEscape(true);
     // Escape Process II
     // TO BE DONE LATER (if I still have time...)
+    return false;
+}
+
+bool
+Router_t::getEscapePointII(EndPoint_t &src)
+{
+    return false;
 }
 
 void
