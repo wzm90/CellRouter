@@ -773,7 +773,8 @@ Router_t::getEscapePointI(EndPoint_t &src)
     bool noHorizontalEscape = sameBox(leftCover, rightCover);
     bool noVerticalEscape  = sameBox(bottomCover, topCover);
 
-    oaInt4 movement = _designRule.metalSpacing() + _designRule.metalWidth() / 2;
+    oaInt4 movement = _designRule.metalSpacing() + _designRule.metalWidth() / 2 + \
+                      2 * _designRule.viaExtension();
 
     if (bottomCover.first.y() != _VSSBox.top()) {
         bottomCover.first.x() -= movement;
@@ -1017,7 +1018,8 @@ Router_t::getEscapePointII(EndPoint_t &src, const EndPoint_t &dst, \
     bool noHorizontalEscape = sameBox(leftCover, rightCover);
     bool noVerticalEscape  = sameBox(bottomCover, topCover);
 
-    oaInt4 movement = _designRule.metalSpacing() + _designRule.metalWidth() / 2;
+    oaInt4 movement = _designRule.metalSpacing() + _designRule.metalWidth() / 2 + \
+                      2 * _designRule.viaExtension();
     
     oaPoint leftEnd(leftCover.first.x(), objectPoint.y());
     oaPoint rightEnd(rightCover.first.x(), objectPoint.y());
