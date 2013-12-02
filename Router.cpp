@@ -789,19 +789,15 @@ Router_t::getEscapePointI(EndPoint_t &src)
         topCover.second.y() -= movement;
     }
     
-    if (leftCover.first.x() != _VDDBox.left()) {
-        leftCover.first.y() -= movement;
-        leftCover.second.y() += movement;
-        leftCover.first.x() += movement;
-        leftCover.second.x() += movement;
-    }
+    leftCover.first.y() -= movement;
+    leftCover.second.y() += movement;
+    leftCover.first.x() += movement;
+    leftCover.second.x() += movement;
     
-    if (rightCover.first.x() != _VDDBox.right()) {
-        rightCover.first.y() -= movement;
-        rightCover.second.y() += movement;
-        rightCover.first.x() -= movement;
-        rightCover.second.x() -= movement;
-    }
+    rightCover.first.y() -= movement;
+    rightCover.second.y() += movement;
+    rightCover.first.x() -= movement;
+    rightCover.second.x() -= movement;
 
     vector<oaPoint> extremeties;
     Comparator comp(objectPoint);
@@ -908,11 +904,11 @@ Router_t::getEscapePointI(EndPoint_t &src)
     // sort extremeties
     extremeties.clear();
     if (!noVerticalEscape) {
-        if (leftCover.first.x() != _VDDBox.left()) {
+        if (leftCover.first.x() != _VDDBox.left() + movement) {
             extremeties.push_back(leftCover.first);
             extremeties.push_back(leftCover.second);
         } 
-        if (rightCover.first.x() != _VDDBox.right()) {
+        if (rightCover.first.x() != _VDDBox.right() - movement) {
             extremeties.push_back(rightCover.first);
             extremeties.push_back(rightCover.second);
         }
