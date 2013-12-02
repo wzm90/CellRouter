@@ -16,6 +16,7 @@ public:
     oa::oaPoint &getObjectPoint() { return _escapePoints.back(); }
     const oa::oaPoint &getObjectPoint() const { return _escapePoints.back(); }
     void addEscapePoint(const oa::oaPoint &point) { _escapePoints.push_back(point); }
+    void removeEscapePoint() { _escapePoints.pop_back(); }
 
     // we get _cornerPoints only after an intersection point is found.
     void getCornerPoints(const oa::oaPoint &intersectionPoint);

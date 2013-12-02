@@ -366,9 +366,65 @@ Router_t::routeSignal(const Net_t &net)
 {
     if (net.size() > 1) {
         bool result = true;
-        Net_t::const_iterator it1 = net.begin();
-        Net_t::const_iterator it2 = net.begin();
-        ++it2;
+        int front = 0;
+        int back = net.size() - 1;
+        while (1) {
+            oaInt4 xdiff = net[front].x() - net[front+1].x();
+            if ((xdiff > 0 && xdiff < _designRule.viaWidth()) || \
+                    (xdiff < 0 && xdiff > -_designRule.viaWidth())) {
+                oaCoord wireLeft = (net[front].x() < net[front+1].x()) ? net[front].x() : net[front+1].x();
+                oaCoord wireRight = (net[front].x() > net[front+1].x()) ? net[front].x() : net[front+1].x();
+                wireRight += _designRule.viaWidth();
+                oaCoord wireBottom = (net[front].y() < net[front+1].y()) ? net[front].y() : net[front+1].y();
+                oaCoord wireTop = (net[front].y() > net[front+1].y()) ? net[front].y() : net[front+1].y();
+                wireTop += (_designRule.viaHeight() + _designRule.viaExtension());
+                wireBottom -= (_designRule.viaExtension());
+                oaBox wireBox(wireLeft, wireBottom, wireRight, wireTop);
+                oaRect::create(_design->getTopBlock(), METAL1, 1, wireBox);
+                addObstacle(METAL1, net.id(), wireBox);
+            }
+            else {
+                EndPoint_t A(net[front].x()+_designRule.viaWidth()/2, \
+                    net[front].y()+_designRule.viaHeight()/2, net.id());
+
+                EndPoint_t B(net[front+1].x()+_designRule.viaWidth()/2, \
+                    net[front+1].y()+_designRule.viaHeight()/2, net.id());
+
+                result = routeTwoContacts(A, B) && result;
+            }
+            front++;
+
+            if (front < back) {
+                xdiff = net[back].x() - net[back-1].x();
+                if ((xdiff > 0 && xdiff < _designRule.viaWidth()) || \
+                        (xdiff < 0 && xdiff > -_designRule.viaWidth())) {
+                    oaCoord wireLeft = (net[back].x() < net[back-1].x()) ? net[back].x() : net[back-1].x();
+                    oaCoord wireRight = (net[back].x() > net[back-1].x()) ? net[back].x() : net[back-1].x();
+                    wireRight += _designRule.viaWidth();
+                    oaCoord wireBottom = (net[back].y() < net[back-1].y()) ? net[back].y() : net[back-1].y();
+                    oaCoord wireTop = (net[back].y() > net[back-1].y()) ? net[back].y() : net[back-1].y();
+                    wireTop += (_designRule.viaHeight() + _designRule.viaExtension());
+                    wireBottom -= (_designRule.viaExtension());
+                    oaBox wireBox(wireLeft, wireBottom, wireRight, wireTop);
+                    oaRect::create(_design->getTopBlock(), METAL1, 1, wireBox);
+                    addObstacle(METAL1, net.id(), wireBox);
+                }
+                else {
+                    EndPoint_t A1(net[back].x()+_designRule.viaWidth()/2, \
+                        net[back].y()+_designRule.viaHeight()/2, net.id());
+
+                    EndPoint_t B1(net[back-1].x()+_designRule.viaWidth()/2, \
+                        net[back-1].y()+_designRule.viaHeight()/2, net.id());
+
+                    result = routeTwoContacts(A1, B1) && result;
+                }
+            }
+            
+            if (front >= back) {
+                break;
+            }
+        }
+        /*
         for (; it2 != net.end(); ++it1, ++it2) {
             oaInt4 xdiff = it1->x() - it2->x();
             if ((xdiff > 0 && xdiff < _designRule.viaWidth()) || \
@@ -393,6 +449,7 @@ Router_t::routeSignal(const Net_t &net)
 
             result = routeTwoContacts(A, B) && result;
         }
+        */
         return result;
     } 
 
@@ -791,9 +848,21 @@ Router_t::getEscapePoint(EndPoint_t &src)
                     // escapePoint.x() = (pIter->x() + leftCover.first.x()) / 2;
                     escapePoint.y() = objectPoint.y();
                     if (!src.onEscapeLines(escapePoint, VERTICAL)) {
+                        Orient_t prevOrient;
+                        prevOrient = src.orient();
                         src.setOrient(VERTICAL);
                         src.addEscapePoint(escapePoint);
-                        return;
+                        // check if escapeLine of new esapePoint is longer than objectPoint
+                        line_t escapeVline;
+                        getEscapeLine(src, VERTICAL, escapeVline);
+                        if ((escapeVline.second.y() - escapeVline.first.y()) < \
+                                (topCover.first.y() - bottomCover.first.y())) {
+                            src.setOrient(prevOrient);
+                            src.removeEscapePoint();
+                        }
+                        else {
+                            return;
+                        }
                     }
                 }
             }
@@ -818,9 +887,21 @@ Router_t::getEscapePoint(EndPoint_t &src)
                     //escapePoint.x() = (pIter->x() + rightCover.first.x()) / 2;
                     escapePoint.y() = objectPoint.y();
                     if (!src.onEscapeLines(escapePoint, VERTICAL)) {
+                        Orient_t prevOrient;
+                        prevOrient = src.orient();
                         src.setOrient(VERTICAL);
                         src.addEscapePoint(escapePoint);
-                        return;
+                        // check if escapeLine of new esapePoint is longer than objectPoint
+                        line_t escapeVline;
+                        getEscapeLine(src, VERTICAL, escapeVline);
+                        if ((escapeVline.second.y() - escapeVline.first.y()) < \
+                                (topCover.first.y() - bottomCover.first.y())) {
+                            src.setOrient(prevOrient);
+                            src.removeEscapePoint();
+                        }
+                        else {
+                            return;
+                        }
                     }
                 }
             }
@@ -861,9 +942,21 @@ Router_t::getEscapePoint(EndPoint_t &src)
                     escapePoint.x() = objectPoint.x();
                     //escapePoint.y() = (pIter->y() + bottomCover.first.y()) / 2;
                     if (!src.onEscapeLines(escapePoint, HORIZONTAL)) {
+                        Orient_t prevOrient;
+                        prevOrient = src.orient();
                         src.setOrient(HORIZONTAL);
                         src.addEscapePoint(escapePoint);
-                        return;
+                        // check if escapeLine of new esapePoint is longer than objectPoint
+                        line_t escapeHline;
+                        getEscapeLine(src, HORIZONTAL, escapeHline);
+                        if ((escapeHline.second.x() - escapeHline.first.x()) < \
+                                (rightCover.first.x() - leftCover.first.x())) {
+                            src.setOrient(prevOrient);
+                            src.removeEscapePoint();
+                        }
+                        else {
+                            return;
+                        }
                     }
                 }
             }
@@ -888,9 +981,21 @@ Router_t::getEscapePoint(EndPoint_t &src)
                     escapePoint.x() = objectPoint.x();
                     //escapePoint.y() = (pIter->y() + topCover.first.y()) / 2;
                     if (!src.onEscapeLines(escapePoint, HORIZONTAL)) {
+                        Orient_t prevOrient;
+                        prevOrient = src.orient();
                         src.setOrient(HORIZONTAL);
                         src.addEscapePoint(escapePoint);
-                        return;
+                        // check if escapeLine of new esapePoint is longer than objectPoint
+                        line_t escapeHline;
+                        getEscapeLine(src, HORIZONTAL, escapeHline);
+                        if ((escapeHline.second.x() - escapeHline.first.x()) < \
+                                (rightCover.first.x() - leftCover.first.x())) {
+                            src.setOrient(prevOrient);
+                            src.removeEscapePoint();
+                        }
+                        else {
+                            return;
+                        }
                     }
                 }
             }
