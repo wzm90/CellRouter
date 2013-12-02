@@ -52,3 +52,14 @@ DRC_t::DRC_t(ifstream &file)
         exit(1);
     }
 }
+
+void
+DRC_t::restoreToMin()
+{
+    _metalWidth = 650;
+    _metalSpacing = 550;
+    _viaExtension = 100;
+    _metalArea = 780000;
+    _viaWidth = 650;
+    _viaHeight = 650;
+}

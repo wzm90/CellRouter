@@ -154,6 +154,45 @@ Router_t::route()
     return result;
 }
 
+bool
+Router_t::reRoute()
+{
+    _designRule.restoreToMin();
+    _m1Barriers.clear();
+    _m1Vlines.clear();
+    _m2Barriers.clear();
+    _m2Hlines.clear();
+    oaBox routeRegionBox(_VDDBox.left(), _VSSBox.top(), _VSSBox.right(), \
+            _VDDBox.bottom());
+
+    addObstacle(METAL1, -1, routeRegionBox);
+    addObstacle(METAL2, -1, routeRegionBox);
+    NetSet_t::const_iterator netIter;
+    // create metal1 for each contact
+    for (netIter = _nets.begin(); netIter != _nets.end(); ++netIter) {
+        Net_t::const_iterator citer;
+        for (citer = netIter->begin(); citer != netIter->end(); ++citer) {
+            oaPoint upperRight(citer->x() + _designRule.viaWidth(), \
+                    citer->y() + _designRule.viaHeight());
+
+            oaBox m1Box(*citer, upperRight);
+            m1Box.bottom() -= _designRule.viaExtension();
+            m1Box.top() += _designRule.viaExtension();
+            oaRect::create(_design->getTopBlock(), METAL1, 1, m1Box);
+            // add all contacts as M1 obstacles
+            addObstacle(METAL1, netIter->id(), m1Box);
+        }
+    }
+
+    bool result = true;
+
+    for (netIter = _nets.begin(); netIter != _nets.end(); ++netIter) {
+        bool oneResult = routeOneNet(*netIter);
+        result = oneResult && result;
+    }
+    return result;
+}
+
 void
 Router_t::reorderNets()
 {

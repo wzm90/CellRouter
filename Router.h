@@ -13,6 +13,7 @@ public:
     Router_t(oa::oaDesign *design, oa::oaTech *tech, std::ifstream &file1,\
             std::ifstream &file2);
     bool route();
+    bool reRoute();
 private:
     typedef enum { LEFT, BOTTOM, RIGHT, TOP } CoverType;
     // BarrierSet_t: containters for storing line barriers, 

@@ -13,6 +13,7 @@ public:
     oa::oaInt4 viaWidth() const { return _viaWidth; }
     oa::oaInt4 viaHeight() const { return _viaHeight; }
     oa::oaInt4 minimumStep() const { return _metalArea / _metalWidth; }
+    void restoreToMin();
 private:
     void setMetalWidth(oa::oaInt4 width) { _metalWidth = 10 * width; }
     void setMetalSpacing(oa::oaInt4 space) { _metalSpacing = 10 * space; }

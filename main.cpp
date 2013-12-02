@@ -106,6 +106,7 @@ int main(int argc, char *argv[])
         if (router.route()) {
             cout << "Routing succeeded without violation." << endl;
         } else {
+            router.reRoute();
             cout << "Routing failed with some violations." << endl;
         }
 
